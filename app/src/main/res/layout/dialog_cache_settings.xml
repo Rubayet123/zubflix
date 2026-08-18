@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cache &amp; Performance Settings"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Max Cache Input -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Max Cache Size (MB)"
+            android:textColor="#888888"
+            android:textSize="12sp"
+            android:layout_marginBottom="4dp"/>
+
+        <EditText
+            android:id="@+id/input_max_cache"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_item_focus"
+            android:paddingHorizontal="12dp"
+            android:textColor="#FFFFFF"
+            android:inputType="number"
+            android:text="200"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Cache TTL Spinner -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Provider Cache Time-to-Live (TTL)"
+            android:textColor="#888888"
+            android:textSize="12sp"
+            android:layout_marginBottom="4dp"/>
+
+        <Spinner
+            android:id="@+id/spinner_cache_ttl"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_item_focus"
+            android:textColor="#FFFFFF"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Switches -->
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switch_persistent_tmdb"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Persistent TMDB Metadata Cache"
+            android:textColor="#FFFFFF"
+            android:thumbTint="#E50914"
+            android:trackTint="#55FFFFFF"
+            android:layout_marginBottom="8dp"/>
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switch_home_ratings"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Show Ratings on Home Screen"
+            android:textColor="#FFFFFF"
+            android:thumbTint="#E50914"
+            android:trackTint="#55FFFFFF"
+            android:layout_marginBottom="24dp"/>
+
+        <!-- Action Buttons -->
+        <Button
+            android:id="@+id/btn_clear_source_cache"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Clear Provider Cache"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#333333"
+            android:layout_marginBottom="12dp"/>
+
+        <Button
+            android:id="@+id/btn_clear_tmdb_cache"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Clear TMDB Metadata Cache"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#333333"
+            android:layout_marginBottom="12dp"/>
+
+    </LinearLayout>
+</ScrollView>

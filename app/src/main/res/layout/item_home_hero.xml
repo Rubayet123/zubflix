@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="450dp"
+    android:background="#000000"
+    android:focusable="false"
+    android:clipChildren="false"
+    android:clipToPadding="false">
+
+    <!-- Background Cinematic Poster -->
+    <ImageView
+        android:id="@+id/img_hero_backdrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:contentDescription="Featured Content Poster"
+        android:src="@drawable/bg_smart_poster" />
+
+    <!-- Overlay Gradient for Cinematic Shadows and Text Readability -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_hero_gradient" />
+
+    <!-- Content Details Overlaid on the Bottom -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:gravity="start"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+
+        <!-- Source & Rating Badges -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <!-- Premium "FEATURED" label -->
+            <TextView
+                android:id="@+id/tv_hero_badge_featured"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="FEATURED"
+                android:textColor="#E50914"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.1"
+                android:background="#22E50914"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="4dp"
+                android:layout_marginEnd="8dp" />
+
+            <!-- Source provider badge -->
+            <TextView
+                android:id="@+id/tv_hero_source"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Nuvio"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:background="#33FFFFFF"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="4dp"
+                android:layout_marginEnd="8dp" />
+
+            <!-- Year Badge -->
+            <TextView
+                android:id="@+id/tv_hero_year"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="2024"
+                android:textColor="#CCCCCC"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="12dp" />
+
+            <!-- Rating Badge -->
+            <TextView
+                android:id="@+id/tv_hero_rating"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="★ 8.5"
+                android:textColor="#FFB300"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Movie Title -->
+        <TextView
+            android:id="@+id/tv_hero_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Dune: Part Two"
+            android:textColor="#FFFFFF"
+            android:textSize="32sp"
+            android:textStyle="bold"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:layout_marginBottom="8dp"/>
+
+        <!-- Movie Description / Plot -->
+        <TextView
+            android:id="@+id/tv_hero_desc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Paul Atreides unites with Chani and the Fremen while seeking revenge against the conspirators who destroyed his family."
+            android:textColor="#CCCCCC"
+            android:textSize="14sp"
+            android:lineSpacingMultiplier="1.15"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:layout_marginBottom="20dp" />
+
+        <!-- Control Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:clipChildren="false"
+            android:clipToPadding="false">
+
+            <!-- Play Button (Solid White) -->
+            <LinearLayout
+                android:id="@+id/btn_hero_play"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:paddingHorizontal="16dp"
+                android:background="@drawable/bg_hero_play_button"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:layout_marginEnd="12dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@android:drawable/ic_media_play"
+                    app:tint="#000000"
+                    android:layout_marginEnd="8dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Play"
+                    android:textColor="#000000"
+                    android:textSize="16sp"
+                    android:textStyle="bold"/>
+            </LinearLayout>
+
+            <!-- Info Button (Translucent Grey) -->
+            <LinearLayout
+                android:id="@+id/btn_hero_info"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:paddingHorizontal="16dp"
+                android:background="@drawable/bg_hero_info_button"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@android:drawable/ic_menu_info_details"
+                    app:tint="#FFFFFF"
+                    android:layout_marginEnd="8dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Info"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold"/>
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</RelativeLayout>

@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#08090C"
+    android:clipChildren="false"
+    android:clipToPadding="false">
+
+    <!-- Cinematic Backdrop Image -->
+    <ImageView
+        android:id="@+id/img_hero_backdrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:contentDescription="Featured Backdrop" />
+
+    <!-- Top Vignette Gradient for Clean Status Bar / Top Header Readability -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="120dp"
+        android:background="@drawable/top_bar_gradient" />
+
+    <!-- Bottom & Center Deep Fade Scrim -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_hero_gradient_deep" />
+
+    <!-- Text & Controls Container -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="vertical"
+        android:paddingHorizontal="24dp"
+        android:paddingBottom="20dp"
+        android:gravity="start"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+
+        <!-- [Z] Brand Badge & Type Label -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <!-- Red [Z] Logo -->
+            <TextView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:background="@drawable/bg_hero_badge_z"
+                android:gravity="center"
+                android:text="Z"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-black"
+                android:layout_marginEnd="8dp" />
+
+            <!-- Category Label e.g. FEATURED FILM or SERIES -->
+            <TextView
+                android:id="@+id/tv_hero_badge_type"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="FEATURED FILM"
+                android:textColor="#E0E0E0"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.15"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
+
+        <!-- Movie/Show Title -->
+        <TextView
+            android:id="@+id/tv_hero_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="The Invite"
+            android:textColor="#FFFFFF"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-black"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Metadata Badges Row (Match %, ★ Rating, Year, 4k, 5.1) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="10dp">
+
+            <!-- Match % in Neon Green -->
+            <TextView
+                android:id="@+id/tv_hero_match"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="98% Match"
+                android:textColor="#46D369"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="10dp" />
+
+            <!-- Rating Star Pill -->
+            <TextView
+                android:id="@+id/tv_hero_rating"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_hero_rating_pill"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
+                android:text="★ 7.5"
+                android:textColor="#FFD700"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="10dp" />
+
+            <!-- Year Badge -->
+            <TextView
+                android:id="@+id/tv_hero_year"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="2026"
+                android:textColor="#CCCCCC"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="10dp" />
+
+            <!-- Quality Badge [4k] -->
+            <TextView
+                android:id="@+id/tv_hero_quality"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_hero_pill_border"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
+                android:text="4k"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="8dp" />
+
+            <!-- Audio Badge [5.1] -->
+            <TextView
+                android:id="@+id/tv_hero_audio"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_hero_pill_border"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
+                android:text="5.1"
+                android:textColor="#D0FFFFFF"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Movie Description / Synopsis (2 lines) -->
+        <TextView
+            android:id="@+id/tv_hero_desc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Joe and Angela's marriage is on thin ice. When they invite their enigmatic upstairs neighbors for a dinner party, the night takes an unexpected turn."
+            android:textColor="#D0FFFFFF"
+            android:textSize="13sp"
+            android:lineSpacingMultiplier="1.15"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Action Buttons Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:clipChildren="false"
+            android:clipToPadding="false">
+
+            <!-- Play Button (Solid White Pill) -->
+            <LinearLayout
+                android:id="@+id/btn_hero_play"
+                android:layout_width="wrap_content"
+                android:minWidth="120dp"
+                android:layout_height="44dp"
+                android:paddingHorizontal="20dp"
+                android:background="@drawable/bg_hero_play_pill"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:layout_marginEnd="12dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_play_premium"
+                    app:tint="#000000"
+                    android:layout_marginEnd="6dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Play"
+                    android:textColor="#000000"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- My List Button (Frosted Translucent Pill) -->
+            <LinearLayout
+                android:id="@+id/btn_hero_mylist"
+                android:layout_width="wrap_content"
+                android:minWidth="128dp"
+                android:layout_height="44dp"
+                android:paddingHorizontal="18dp"
+                android:background="@drawable/bg_hero_mylist_pill"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:id="@+id/iv_hero_mylist_icon"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:src="@drawable/ic_plus"
+                    app:tint="#FFFFFF"
+                    android:layout_marginEnd="6dp" />
+
+                <TextView
+                    android:id="@+id/tv_hero_mylist_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="My List"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</RelativeLayout>

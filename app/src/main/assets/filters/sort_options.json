@@ -1,0 +1,18 @@
+[
+  {
+    "id": "popularity.desc",
+    "title": "Popular"
+  },
+  {
+    "id": "primary_release_date.desc",
+    "title": "New Releases"
+  },
+  {
+    "id": "vote_average.desc",
+    "title": "Top Rated"
+  },
+  {
+    "id": "trending",
+    "title": "Trending"
+  }
+]

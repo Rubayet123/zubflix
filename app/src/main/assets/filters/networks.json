@@ -1,0 +1,135 @@
+[
+  {
+    "id": "all",
+    "name": "All Networks",
+    "tvNetworkId": null,
+    "movieProviderId": null,
+    "defaultRegion": "US"
+  },
+  {
+    "id": "netflix",
+    "name": "Netflix",
+    "tvNetworkId": 213,
+    "movieProviderId": 8,
+    "defaultRegion": "US"
+  },
+  {
+    "id": "prime_video",
+    "name": "Amazon Prime Video",
+    "tvNetworkId": 1024,
+    "movieProviderId": 119,
+    "defaultRegion": "US"
+  },
+  {
+    "id": "disney_plus",
+    "name": "Disney+",
+    "tvNetworkId": 2739,
+    "movieProviderId": 337,
+    "defaultRegion": "US"
+  },
+  {
+    "id": "apple_tv_plus",
+    "name": "Apple TV+",
+    "tvNetworkId": 2552,
+    "movieProviderId": 350,
+    "defaultRegion": "US"
+  },
+  {
+    "id": "hbo_max",
+    "name": "HBO / Max",
+    "tvNetworkId": 49,
+    "movieProviderId": 1899,
+    "defaultRegion": "US"
+  },
+  {
+    "id": "hulu",
+    "name": "Hulu",
+    "tvNetworkId": 453,
+    "movieProviderId": 15,
+    "defaultRegion": "US"
+  },
+  {
+    "id": "paramount_plus",
+    "name": "Paramount+",
+    "tvNetworkId": 4330,
+    "movieProviderId": 531,
+    "defaultRegion": "US"
+  },
+  {
+    "id": "peacock",
+    "name": "Peacock",
+    "tvNetworkId": 3353,
+    "movieProviderId": 386,
+    "defaultRegion": "US"
+  },
+  {
+    "id": "bbc_iplayer",
+    "name": "BBC iPlayer",
+    "tvNetworkId": 4,
+    "movieProviderId": 338,
+    "defaultRegion": "GB"
+  },
+  {
+    "id": "mubi",
+    "name": "MUBI",
+    "tvNetworkId": null,
+    "movieProviderId": 11,
+    "defaultRegion": "US"
+  },
+  {
+    "id": "crunchyroll",
+    "name": "Crunchyroll",
+    "tvNetworkId": 1112,
+    "movieProviderId": 283,
+    "defaultRegion": "US"
+  },
+  {
+    "id": "discovery_plus",
+    "name": "Discovery+",
+    "tvNetworkId": 4353,
+    "movieProviderId": 433,
+    "defaultRegion": "US"
+  },
+  {
+    "id": "curiosity_stream",
+    "name": "CuriosityStream",
+    "tvNetworkId": 1267,
+    "movieProviderId": 190,
+    "defaultRegion": "US"
+  },
+  {
+    "id": "national_geographic",
+    "name": "National Geographic",
+    "tvNetworkId": 43,
+    "movieProviderId": 337,
+    "defaultRegion": "US"
+  },
+  {
+    "id": "jiohotstar",
+    "name": "JioHotstar",
+    "tvNetworkId": 3919,
+    "movieProviderId": 220,
+    "defaultRegion": "IN"
+  },
+  {
+    "id": "sonyliv",
+    "name": "Sony LIV",
+    "tvNetworkId": 2271,
+    "movieProviderId": 237,
+    "defaultRegion": "IN"
+  },
+  {
+    "id": "zee5",
+    "name": "ZEE5",
+    "tvNetworkId": 1516,
+    "movieProviderId": 232,
+    "defaultRegion": "IN"
+  },
+  {
+    "id": "hoichoi",
+    "name": "Hoichoi",
+    "tvNetworkId": 3057,
+    "movieProviderId": 315,
+    "defaultRegion": "IN"
+  }
+]

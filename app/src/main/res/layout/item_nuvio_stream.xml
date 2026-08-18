@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:layout_marginVertical="6dp"
+    android:background="@drawable/bg_stream_card_selector"
+    android:clickable="true"
+    android:focusable="true">
+
+    <!-- Top Row: Addon Provider + Moniker Badge -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="6dp">
+
+        <!-- Addon Provider Name Badge -->
+        <TextView
+            android:id="@+id/tv_addon_provider"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Torrentio"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_nuvio_badge"
+            android:backgroundTint="#2E1C42"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="2dp"
+            android:layout_marginEnd="6dp"/>
+
+        <!-- RD+ or Torrent Moniker Badge -->
+        <TextView
+            android:id="@+id/tv_moniker"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="[RD+]"
+            android:textColor="#00D2FF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_nuvio_badge"
+            android:backgroundTint="#05203C"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="2dp"
+            android:visibility="gone"/>
+    </LinearLayout>
+
+    <!-- Middle Row: Torrent File Name -->
+    <TextView
+        android:id="@+id/tv_torrent_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Inside.Out.2.2024.UHD.2160p.HDR.Atmos.DD5.1"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- Bottom Row: Dynamic Tags Container (Resolution, Size, Audio, Quality, Codec) -->
+    <LinearLayout
+        android:id="@+id/badges_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Resolution (4K, 1080p, etc.) -->
+        <TextView
+            android:id="@+id/tv_badge_resolution"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="4K"
+            android:textColor="#FFFFFF"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_nuvio_badge"
+            android:backgroundTint="#E50914"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="1dp"
+            android:layout_marginEnd="4dp"
+            android:visibility="gone"/>
+
+        <!-- File Size (e.g., 12.5 GB) -->
+        <TextView
+            android:id="@+id/tv_badge_size"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="12.5 GB"
+            android:textColor="#FFFFFF"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_nuvio_badge"
+            android:backgroundTint="#1B4D22"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="1dp"
+            android:layout_marginEnd="4dp"
+            android:visibility="gone"/>
+
+        <!-- Audio (Atmos, DD 5.1, etc.) -->
+        <TextView
+            android:id="@+id/tv_badge_audio"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Atmos"
+            android:textColor="#FFFFFF"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_nuvio_badge"
+            android:backgroundTint="#3F1B63"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="1dp"
+            android:layout_marginEnd="4dp"
+            android:visibility="gone"/>
+
+        <!-- Quality (BluRay, WEBRip, etc.) -->
+        <TextView
+            android:id="@+id/tv_badge_quality"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="BluRay"
+            android:textColor="#D1D1D1"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_nuvio_badge"
+            android:backgroundTint="#333333"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="1dp"
+            android:layout_marginEnd="4dp"
+            android:visibility="gone"/>
+
+        <!-- Codec (HEVC, h264, etc.) -->
+        <TextView
+            android:id="@+id/tv_badge_codec"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="HEVC"
+            android:textColor="#C1C1C1"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_nuvio_badge"
+            android:backgroundTint="#333333"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="1dp"
+            android:layout_marginEnd="4dp"
+            android:visibility="gone"/>
+    </LinearLayout>
+
+</LinearLayout>

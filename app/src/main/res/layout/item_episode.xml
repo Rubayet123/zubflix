@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:layout_marginVertical="5dp"
+    android:padding="10dp"
+    android:background="@drawable/bg_episode_card"
+    android:focusable="true"
+    android:clickable="true">
+
+    <!-- Episode Image Frame (Left) -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="126dp"
+        android:layout_height="74dp"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="#141720"
+        android:layout_gravity="center_vertical">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <ImageView
+                android:id="@+id/img_episode_still"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/bg_smart_poster" />
+
+            <!-- EP Number Badge (Top-Left) -->
+            <TextView
+                android:id="@+id/tv_episode_number_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|start"
+                android:layout_margin="5dp"
+                android:background="@drawable/bg_ep_tag"
+                android:paddingHorizontal="5dp"
+                android:paddingVertical="1dp"
+                android:text="EP 1"
+                android:textColor="#FFFFFF"
+                android:textSize="9sp"
+                android:textStyle="bold" />
+
+            <!-- Play Overlay in Red Circle -->
+            <FrameLayout
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_red_play_circle">
+
+                <ImageView
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_play_premium"
+                    app:tint="#FFFFFF" />
+            </FrameLayout>
+
+        </FrameLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Episode Details (Right) -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:layout_gravity="center_vertical"
+        android:layout_marginStart="12dp">
+
+        <TextView
+            android:id="@+id/tv_episode_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:text="S1E1 - Welcome to Margrave" />
+
+        <!-- Metadata Pills Row (Air Date, Runtime, Rating) -->
+        <LinearLayout
+            android:id="@+id/layout_ep_meta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="4dp">
+
+            <TextView
+                android:id="@+id/tv_ep_air_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_meta_pill_dark"
+                android:paddingHorizontal="5dp"
+                android:paddingVertical="1dp"
+                android:text="2022-02-03"
+                android:textColor="#B0B8C8"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="6dp" />
+
+            <TextView
+                android:id="@+id/tv_ep_runtime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_meta_pill_dark"
+                android:paddingHorizontal="5dp"
+                android:paddingVertical="1dp"
+                android:text="54m"
+                android:textColor="#B0B8C8"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="6dp" />
+
+            <TextView
+                android:id="@+id/tv_ep_rating"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_hero_rating_pill"
+                android:paddingHorizontal="5dp"
+                android:paddingVertical="1dp"
+                android:text="★ 7.6"
+                android:textColor="#FFD700"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tv_episode_description"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:textColor="#A0B0C4"
+            android:textSize="11sp"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:lineSpacingMultiplier="1.15"
+            android:text="Reacher is wrongly accused of murder while visiting the small town of Margrave, GA." />
+
+    </LinearLayout>
+
+</LinearLayout>

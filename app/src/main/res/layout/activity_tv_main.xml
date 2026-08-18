@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/tv_main_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0A0C10">
+
+    <!-- Fullscreen Dynamic Backdrop Art -->
+    <ImageView
+        android:id="@+id/tv_hero_backdrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0.45"
+        android:contentDescription="Hero Backdrop" />
+
+    <!-- Left to Right Cinematic Scrim -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_tv_hero_gradient" />
+
+    <!-- Bottom to Top Cinematic Scrim for Rows Clarity -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_tv_hero_bottom_gradient" />
+
+    <!-- Left Sidebar Navigation Rail -->
+    <LinearLayout
+        android:id="@+id/tv_sidebar_rail"
+        android:layout_width="72dp"
+        android:layout_height="match_parent"
+        android:background="#120D0E12"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingTop="28dp"
+        android:paddingBottom="24dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <!-- App Logo / Red Z icon -->
+        <TextView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/bg_hero_badge_z"
+            android:text="Z"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:textSize="22sp"
+            android:gravity="center"
+            android:fontFamily="sans-serif-black"
+            android:layout_marginBottom="28dp" />
+
+        <!-- 1. Search -->
+        <FrameLayout
+            android:id="@+id/btn_tv_search"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_tv_sidebar_item_focus"
+            android:focusable="true"
+            android:clickable="true"
+            android:contentDescription="Search">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_search"
+                app:tint="#D0D3D9" />
+        </FrameLayout>
+
+        <!-- 2. Home -->
+        <FrameLayout
+            android:id="@+id/btn_tv_home"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_tv_sidebar_item_focus"
+            android:focusable="true"
+            android:clickable="true"
+            android:contentDescription="Home">
+
+            <ImageView
+                android:id="@+id/iv_tv_home"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_home"
+                app:tint="#E50914" />
+        </FrameLayout>
+
+        <!-- 3. Provider Selector -->
+        <FrameLayout
+            android:id="@+id/btn_tv_provider"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_tv_sidebar_item_focus"
+            android:focusable="true"
+            android:clickable="true"
+            android:contentDescription="Switch Provider">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_network"
+                app:tint="#D0D3D9" />
+        </FrameLayout>
+
+        <!-- 4. My List -->
+        <FrameLayout
+            android:id="@+id/btn_tv_mylist"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_tv_sidebar_item_focus"
+            android:focusable="true"
+            android:clickable="true"
+            android:contentDescription="My List">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_heart"
+                app:tint="#D0D3D9" />
+        </FrameLayout>
+
+        <!-- Spacer -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <!-- 5. Settings -->
+        <FrameLayout
+            android:id="@+id/btn_tv_settings"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_tv_sidebar_item_focus"
+            android:focusable="true"
+            android:clickable="true"
+            android:contentDescription="Settings">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_settings"
+                app:tint="#D0D3D9" />
+        </FrameLayout>
+
+    </LinearLayout>
+
+    <!-- Main TV Content Area -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/tv_main_content"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        app:layout_constraintStart_toEndOf="@id/tv_sidebar_rail"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <!-- Top Right Active Provider Indicator Chip -->
+        <LinearLayout
+            android:id="@+id/tv_active_provider_chip"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:layout_marginEnd="36dp"
+            android:background="@drawable/bg_source_selector"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="7dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <View
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:background="@drawable/bg_circle_button"
+                android:backgroundTint="#00E676"
+                android:layout_marginEnd="8dp" />
+
+            <TextView
+                android:id="@+id/tv_active_provider_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Nuvio Streams"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Top Hero Details Section -->
+        <LinearLayout
+            android:id="@+id/tv_hero_details_layout"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:layout_marginTop="28dp"
+            android:layout_marginEnd="48dp"
+            android:orientation="vertical"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <!-- Hero Title -->
+            <TextView
+                android:id="@+id/tv_hero_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Featured Title"
+                android:textColor="#FFFFFF"
+                android:textSize="32sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-black"
+                android:maxLines="2"
+                android:ellipsize="end" />
+
+            <!-- Metadata Badges Row -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <!-- Rating -->
+                <LinearLayout
+                    android:id="@+id/tv_hero_rating_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_source_selector"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="3dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:src="@drawable/ic_star"
+                        app:tint="#FFD700" />
+
+                    <TextView
+                        android:id="@+id/tv_hero_rating"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:text="8.5"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Year -->
+                <TextView
+                    android:id="@+id/tv_hero_year"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="2024"
+                    android:textColor="#C0C4CC"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <!-- Quality Badge -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:background="@drawable/bg_source_selector"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="2dp"
+                    android:text="4K HDR"
+                    android:textColor="#E50914"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <!-- Type / Source Badge -->
+                <TextView
+                    android:id="@+id/tv_hero_source"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="Movie"
+                    android:textColor="#A0A5B0"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <!-- Hero Synopsis -->
+            <TextView
+                android:id="@+id/tv_hero_overview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:maxWidth="640dp"
+                android:text="Movie description synopsis goes here..."
+                android:textColor="#B0B5C0"
+                android:textSize="13sp"
+                android:lineSpacingExtra="3dp"
+                android:maxLines="3"
+                android:ellipsize="end" />
+
+            <!-- Hero Action Buttons -->
+            <LinearLayout
+                android:id="@+id/tv_hero_buttons_layout"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <!-- Play Button -->
+                <LinearLayout
+                    android:id="@+id/btn_tv_hero_play"
+                    android:layout_width="wrap_content"
+                    android:layout_height="42dp"
+                    android:background="@drawable/bg_tv_button_focus"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingHorizontal="18dp"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:contentDescription="Play Featured">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:src="@drawable/ic_play_premium"
+                        app:tint="#FFFFFF" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="Watch Now"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Details Button -->
+                <LinearLayout
+                    android:id="@+id/btn_tv_hero_details"
+                    android:layout_width="wrap_content"
+                    android:layout_height="42dp"
+                    android:layout_marginStart="12dp"
+                    android:background="@drawable/bg_tv_button_focus"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingHorizontal="16dp"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:contentDescription="View Details">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:src="@drawable/ic_info"
+                        app:tint="#D0D3D9" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="Details"
+                        android:textColor="#D0D3D9"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- My List Button -->
+                <LinearLayout
+                    android:id="@+id/btn_tv_hero_mylist"
+                    android:layout_width="wrap_content"
+                    android:layout_height="42dp"
+                    android:layout_marginStart="12dp"
+                    android:background="@drawable/bg_tv_button_focus"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingHorizontal="16dp"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:contentDescription="Add to My List">
+
+                    <ImageView
+                        android:id="@+id/iv_tv_hero_mylist"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:src="@drawable/ic_plus"
+                        app:tint="#D0D3D9" />
+
+                    <TextView
+                        android:id="@+id/tv_tv_hero_mylist_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="My List"
+                        android:textColor="#D0D3D9"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Leanback Rows Container Fragment Frame -->
+        <FrameLayout
+            android:id="@+id/tv_rows_frame"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="8dp"
+            app:layout_constraintTop_toBottomOf="@id/tv_hero_details_layout"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Loading Progress Bar -->
+        <ProgressBar
+            android:id="@+id/tv_loading_indicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:indeterminateTint="#E50914"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

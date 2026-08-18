@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.MyApplication" parent="Theme.MaterialComponents.NoActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">#E50914</item>
+        <item name="colorPrimaryDark">#000000</item>
+        <item name="colorAccent">#E50914</item>
+        <item name="android:windowBackground">#000000</item>
+
+        <!-- Premium Material Dialog Styling -->
+        <item name="materialAlertDialogTheme">@style/CustomMaterialAlertDialog</item>
+        <item name="alertDialogTheme">@style/CustomMaterialAlertDialog</item>
+    </style>
+
+    <style name="CustomMaterialAlertDialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <!-- Dialog Container Background -->
+        <item name="android:background">#181B22</item>
+        <item name="colorSurface">#181B22</item>
+        <item name="shapeAppearanceOverlay">@style/DialogCornerOverlay</item>
+
+        <!-- Typography & Text Colors -->
+        <item name="materialAlertDialogTitleTextStyle">@style/CustomDialogTitleText</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/CustomDialogBodyText</item>
+        <item name="android:textColorPrimary">#FFFFFF</item>
+        <item name="android:textColorSecondary">#CCCCCC</item>
+
+        <!-- Button Bar Button Styles -->
+        <item name="buttonBarPositiveButtonStyle">@style/CustomDialogPositiveButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/CustomDialogNegativeButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/CustomDialogNegativeButton</item>
+    </style>
+
+    <style name="DialogCornerOverlay" parent="">
+        <item name="cornerSize">16dp</item>
+    </style>
+
+    <style name="CustomDialogTitleText" parent="MaterialAlertDialog.MaterialComponents.Title.Text">
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="CustomDialogBodyText" parent="MaterialAlertDialog.MaterialComponents.Body.Text">
+        <item name="android:textColor">#CCCCCC</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <!-- Positive Button Style (e.g. Save, OK) -->
+    <style name="CustomDialogPositiveButton" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">#E50914</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="cornerRadius">8dp</item>
+        <item name="android:paddingLeft">20dp</item>
+        <item name="android:paddingRight">20dp</item>
+        <item name="android:minHeight">40dp</item>
+        <item name="android:layout_marginLeft">6dp</item>
+        <item name="android:layout_marginRight">6dp</item>
+    </style>
+
+    <!-- Negative Button Style (e.g. Cancel, Close) -->
+    <style name="CustomDialogNegativeButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:textColor">#E0E0E0</item>
+        <item name="strokeColor">#44FFFFFF</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="backgroundTint">#22FFFFFF</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="cornerRadius">8dp</item>
+        <item name="android:paddingLeft">20dp</item>
+        <item name="android:paddingRight">20dp</item>
+        <item name="android:minHeight">40dp</item>
+        <item name="android:layout_marginLeft">6dp</item>
+        <item name="android:layout_marginRight">6dp</item>
+    </style>
+
+    <style name="BottomSheetDialogTheme" parent="Theme.Design.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/CustomBottomSheetStyle</item>
+    </style>
+
+    <style name="CustomBottomSheetStyle" parent="Widget.Design.BottomSheet.Modal">
+        <item name="backgroundTint">#181818</item>
+        <item name="behavior_peekHeight">auto</item>
+    </style>
+
+    <!-- Zubflix Android TV Leanback Theme -->
+    <style name="Theme.Zubflix.Tv" parent="Theme.Leanback">
+        <item name="colorPrimary">#E50914</item>
+        <item name="colorPrimaryDark">#0B0C0F</item>
+        <item name="colorAccent">#E50914</item>
+        <item name="android:windowBackground">#0B0C0F</item>
+        <item name="defaultBrandColor">#E50914</item>
+        <item name="defaultSearchColor">#E50914</item>
+    </style>
+
+    <style name="Theme.Zubflix.Tv.Browse" parent="Theme.Leanback.Browse">
+        <item name="colorPrimary">#E50914</item>
+        <item name="colorPrimaryDark">#0B0C0F</item>
+        <item name="colorAccent">#E50914</item>
+        <item name="android:windowBackground">#0B0C0F</item>
+        <item name="defaultBrandColor">#E50914</item>
+        <item name="defaultSearchColor">#E50914</item>
+    </style>
+</resources>

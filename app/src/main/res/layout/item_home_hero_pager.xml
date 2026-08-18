@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="480dp"
+    android:background="#08090C"
+    android:clipChildren="false"
+    android:clipToPadding="false">
+
+    <!-- Hero ViewPager2 for Smooth Multi-item Slides -->
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/hero_view_pager"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false" />
+
+    <!-- Pagination Dots Indicator at Bottom Right -->
+    <LinearLayout
+        android:id="@+id/hero_dots_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="32dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:elevation="6dp" />
+
+</RelativeLayout>
