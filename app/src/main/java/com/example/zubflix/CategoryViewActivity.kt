@@ -317,11 +317,12 @@ class CategoryViewActivity : AppCompatActivity() {
                     }
                     startActivity(intent)
                 } else {
-                    val intent = Intent(this, DetailsActivity::class.java).apply {
-                        putExtra("ITEM_ID", item.id)
-                        putExtra("SOURCE_NAME", if (!item.sourceName.isNullOrEmpty()) item.sourceName else sourceName)
+                    val srcItem = if (item.sourceName.isNullOrBlank()) {
+                        item.copy(sourceName = sourceName)
+                    } else {
+                        item
                     }
-                    startActivity(intent)
+                    DetailsActivity.start(this, srcItem)
                 }
             },
             onViewMoreClick = null, // Disable "View More" button since we are in grid/view-more mode

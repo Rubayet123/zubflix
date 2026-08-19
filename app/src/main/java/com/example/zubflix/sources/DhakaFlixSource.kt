@@ -32,7 +32,7 @@ class DhakaFlixSource(private val context: Context? = null) : StreamingSource {
         .build()
     private val gson = Gson()
     private val currentYear = 2025
-    private val semaphore = Semaphore(8)
+    private val semaphore = Semaphore(3)
 
     private val categoriesMap = mapOf(
         // Server 14 - Movies & Series
@@ -177,7 +177,7 @@ class DhakaFlixSource(private val context: Context? = null) : StreamingSource {
                     }
                 }.awaitAll().flatten()
 
-                val items: List<StreamingItem> = allRawResults.take(40).map { (fullUrl, href, itemHost) ->
+                val items: List<StreamingItem> = allRawResults.take(12).map { (fullUrl, href, itemHost) ->
                     async<StreamingItem?> {
                         semaphore.withPermit {
                             val rawName = nameFromUrl(href)
@@ -188,30 +188,32 @@ class DhakaFlixSource(private val context: Context? = null) : StreamingSource {
                             var isSeries = href.contains("Series", ignoreCase = true) || href.contains("TV", ignoreCase = true)
                             var isCategory = href.endsWith("/")
 
-                            // Peeking inside folder for local image & video items check
+                            // Peeking inside folder for local image & video items check (memory-capped)
                             var localImageUrl: String? = null
                             try {
                                 val imgRequest = Request.Builder().url(fullUrl).build()
                                 client.newCall(imgRequest).execute().use { imgResponse ->
-                                    val responseBody = imgResponse.body?.string() ?: ""
-                                    val imgDoc = Jsoup.parse(responseBody)
+                                    val responseBody = imgResponse.peekBody(128 * 1024).string()
+                                    if (responseBody.isNotBlank()) {
+                                        val imgDoc = Jsoup.parse(responseBody)
 
-                                    val allImages = imgDoc.select("td.fb-n > a[href~=(?i)\\.(png|jpe?g)]").map { it.attr("href") }
-                                    val posterPath = allImages.find { img ->
-                                        val lower = img.lowercase()
-                                        lower.contains("poster") || lower.contains("folder") || lower.contains("a11") || lower.contains("a_al_")
-                                    } ?: allImages.firstOrNull()
+                                        val allImages = imgDoc.select("td.fb-n > a[href~=(?i)\\.(png|jpe?g)]").map { it.attr("href") }
+                                        val posterPath = allImages.find { img ->
+                                            val lower = img.lowercase()
+                                            lower.contains("poster") || lower.contains("folder") || lower.contains("a11") || lower.contains("a_al_")
+                                        } ?: allImages.firstOrNull()
 
-                                    localImageUrl = posterPath?.let { buildUrl(it, baseUrlOverride = itemHost, isEncoded = true) }
+                                        localImageUrl = posterPath?.let { buildUrl(it, baseUrlOverride = itemHost, isEncoded = true) }
 
-                                    val tableItems = imgDoc.select("tbody > tr:gt(1)")
-                                    val hasVideo = tableItems.select("td.fb-n > a[href~=(?i)\\.(mkv|mp4|avi)]").isNotEmpty()
+                                        val tableItems = imgDoc.select("tbody > tr:gt(1)")
+                                        val hasVideo = tableItems.select("td.fb-n > a[href~=(?i)\\.(mkv|mp4|avi)]").isNotEmpty()
 
-                                    if (hasVideo || (isSeries && tableItems.isNotEmpty())) {
-                                        isCategory = false
+                                        if (hasVideo || (isSeries && tableItems.isNotEmpty())) {
+                                            isCategory = false
+                                        }
                                     }
                                 }
-                            } catch (e: Exception) { }
+                            } catch (e: Throwable) { }
 
                             // TMDB Details Enrichment
                             val tmdbDetails = if (context != null && clean.isNotBlank()) {

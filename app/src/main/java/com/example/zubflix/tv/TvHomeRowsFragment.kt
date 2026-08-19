@@ -51,6 +51,22 @@ class TvHomeRowsFragment : RowsSupportFragment() {
             for (item in category.items) {
                 rowAdapter.add(item)
             }
+            if (!category.hideViewMore && (category.id.isNotBlank() || category.items.isNotEmpty())) {
+                val categorySource = category.items.firstOrNull()?.sourceName ?: ""
+                val seeAllItem = StreamingItem(
+                    id = category.id.ifBlank { category.title },
+                    title = "See All",
+                    imageUrl = null,
+                    backdropUrl = null,
+                    description = "Browse the complete collection of ${category.title} titles.",
+                    rating = null,
+                    year = null,
+                    isSeries = false,
+                    isCategory = true,
+                    sourceName = categorySource
+                )
+                rowAdapter.add(seeAllItem)
+            }
             val header = HeaderItem(index.toLong(), category.title)
             rowsAdapter.add(ListRow(header, rowAdapter))
         }

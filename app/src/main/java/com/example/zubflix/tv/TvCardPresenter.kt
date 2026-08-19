@@ -23,8 +23,12 @@ class TvCardPresenter(
         val title: TextView = view.findViewById(R.id.tv_card_title)
         val ratingBadge: LinearLayout = view.findViewById(R.id.tv_card_rating_badge)
         val ratingText: TextView = view.findViewById(R.id.tv_card_rating_text)
+        val actionPill: LinearLayout = view.findViewById(R.id.tv_card_action_pill)
+        val actionText: TextView = view.findViewById(R.id.tv_card_action_text)
         val progressBar: ProgressBar = view.findViewById(R.id.tv_card_progress_bar)
         val focusOverlay: View = view.findViewById(R.id.tv_card_focus_overlay)
+        val seeAllContainer: LinearLayout = view.findViewById(R.id.tv_see_all_container)
+        val seeAllText: TextView = view.findViewById(R.id.tv_see_all_text)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup): Presenter.ViewHolder {
@@ -36,57 +40,83 @@ class TvCardPresenter(
         val holder = viewHolder as? ViewHolder ?: return
         val streamingItem = item as? StreamingItem ?: return
 
-        holder.title.text = streamingItem.title
-
-        // Poster image loading
-        val posterUrl = streamingItem.imageUrl?.takeIf { it.isNotBlank() }
-            ?: streamingItem.backdropUrl?.takeIf { it.isNotBlank() }
-
-        if (!posterUrl.isNullOrEmpty()) {
-            holder.poster.load(posterUrl) {
-                crossfade(true)
-                allowRgb565(true)
-                transformations(RoundedCornersTransformation(10f))
-            }
-        } else {
-            holder.poster.setImageResource(R.drawable.ic_movie)
-        }
-
-        // Rating
-        val rating = streamingItem.rating
-        if (!rating.isNullOrBlank() && rating != "0" && rating != "0.0" && rating != "N/A") {
-            val cleanRating = rating.replace("/10", "").trim()
-            val formattedRating = try {
-                String.format("%.1f", cleanRating.toDouble())
-            } catch (e: Exception) {
-                cleanRating
-            }
-            holder.ratingText.text = formattedRating
-            holder.ratingBadge.visibility = View.VISIBLE
-        } else {
+        if (streamingItem.isCategory) {
+            // Dedicated "See All / Explore" TV Card
+            holder.poster.setImageDrawable(null)
+            holder.poster.setBackgroundColor(android.graphics.Color.parseColor("#161820"))
+            holder.title.visibility = View.GONE
             holder.ratingBadge.visibility = View.GONE
-        }
-
-        // Continue Watching Progress Bar
-        val progress = streamingItem.watchPercentage?.toInt() ?: 0
-        if (progress > 0) {
-            holder.progressBar.progress = progress.coerceIn(1, 100)
-            holder.progressBar.visibility = View.VISIBLE
-        } else {
+            holder.actionPill.visibility = View.GONE
             holder.progressBar.visibility = View.GONE
+            holder.seeAllContainer.visibility = View.VISIBLE
+            holder.seeAllText.text = streamingItem.title
+        } else {
+            holder.seeAllContainer.visibility = View.GONE
+            holder.title.visibility = View.VISIBLE
+            holder.title.text = streamingItem.title
+
+            // Action Pill Text
+            val progress = streamingItem.watchPercentage?.toInt() ?: 0
+            if (progress > 0) {
+                holder.actionText.text = "Resume"
+            } else {
+                holder.actionText.text = "Watch Now"
+            }
+
+            // Poster image loading
+            val posterUrl = streamingItem.imageUrl?.takeIf { it.isNotBlank() }
+                ?: streamingItem.backdropUrl?.takeIf { it.isNotBlank() }
+
+            if (!posterUrl.isNullOrEmpty()) {
+                holder.poster.load(posterUrl) {
+                    crossfade(true)
+                    allowRgb565(true)
+                    transformations(RoundedCornersTransformation(6f))
+                }
+            } else {
+                holder.poster.setImageResource(R.drawable.ic_movie)
+            }
+
+            // Rating Badge
+            val rating = streamingItem.rating
+            if (!rating.isNullOrBlank() && rating != "0" && rating != "0.0" && rating != "N/A") {
+                val cleanRating = rating.replace("/10", "").trim()
+                val formattedRating = try {
+                    String.format("%.1f", cleanRating.toDouble())
+                } catch (e: Exception) {
+                    cleanRating
+                }
+                holder.ratingText.text = formattedRating
+                holder.ratingBadge.visibility = View.VISIBLE
+            } else {
+                holder.ratingBadge.visibility = View.GONE
+            }
+
+            // Continue Watching Progress Bar
+            if (progress > 0) {
+                holder.progressBar.progress = progress.coerceIn(1, 100)
+                holder.progressBar.visibility = View.VISIBLE
+            } else {
+                holder.progressBar.visibility = View.GONE
+            }
         }
 
-        // Smooth focus scale effect
+        // Smooth Netflix-style focus scale and action pill toggle
         holder.view.setOnFocusChangeListener { view, hasFocus ->
             val scale = if (hasFocus) 1.08f else 1.0f
-            val elevation = if (hasFocus) 16f else 4f
+            val elevation = if (hasFocus) 16f else 3f
             view.animate()
                 .scaleX(scale)
                 .scaleY(scale)
                 .translationZ(elevation)
-                .setDuration(180)
+                .setDuration(160)
                 .setInterpolator(DecelerateInterpolator())
                 .start()
+
+            // Toggle Netflix Watch Now action pill on focus
+            if (!streamingItem.isCategory) {
+                holder.actionPill.visibility = if (hasFocus) View.VISIBLE else View.GONE
+            }
 
             if (hasFocus) {
                 onCardFocused?.invoke(streamingItem)

@@ -52,12 +52,14 @@ internal object CastleTvScraper : LocalScraper {
 
             val streamMap = delegateSource.extractVideoLinks(targetStreamData)
             streamMap.forEach { (title, url) ->
+                val isPreview = title.contains("preview", ignoreCase = true) || url.contains("preview", ignoreCase = true)
+                val cleanTitle = if (isPreview && !title.contains("Preview", ignoreCase = true)) "$title [Preview ⚠️]" else title
                 results.add(
                     StreamResult(
                         source = "CastleTV",
-                        title = title,
+                        title = cleanTitle,
                         url = url,
-                        qualityScore = BDIXUtils.scoreQuality(title),
+                        qualityScore = if (isPreview) -50000 else BDIXUtils.scoreQuality(title),
                         mediaTitle = details.title
                     )
                 )

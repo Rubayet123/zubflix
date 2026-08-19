@@ -13,20 +13,28 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scaleType="centerCrop"
-        android:alpha="0.45"
+        android:alpha="0.85"
         android:contentDescription="Hero Backdrop" />
 
-    <!-- Left to Right Cinematic Scrim -->
+    <!-- Left to Right Cinematic Scrim (Focused strictly on left for text legibility) -->
     <View
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:background="@drawable/bg_tv_hero_gradient" />
+        android:background="@drawable/bg_tv_hero_gradient"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintWidth_percent="0.62"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
 
-    <!-- Bottom to Top Cinematic Scrim for Rows Clarity -->
+    <!-- Bottom to Top Cinematic Scrim for Rows Clarity (Only bottom half) -->
     <View
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@drawable/bg_tv_hero_bottom_gradient" />
+        android:layout_height="0dp"
+        android:background="@drawable/bg_tv_hero_bottom_gradient"
+        app:layout_constraintHeight_percent="0.55"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- Left Sidebar Navigation Rail -->
     <LinearLayout
@@ -125,10 +133,12 @@
             android:contentDescription="My List">
 
             <ImageView
+                android:id="@+id/iv_tv_mylist"
                 android:layout_width="22dp"
                 android:layout_height="22dp"
                 android:layout_gravity="center"
                 android:src="@drawable/ic_heart"
+                android:tint="#D0D3D9"
                 app:tint="#D0D3D9" />
         </FrameLayout>
 
@@ -200,18 +210,48 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Top Hero Details Section -->
+        <!-- Top Hero Details Section (Netflix Inspired - Strictly Left-Aligned 46% Column) -->
         <LinearLayout
             android:id="@+id/tv_hero_details_layout"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="24dp"
-            android:layout_marginTop="28dp"
-            android:layout_marginEnd="48dp"
+            android:layout_marginStart="28dp"
+            android:layout_marginTop="20dp"
             android:orientation="vertical"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintWidth_percent="0.46"
             app:layout_constraintTop_toTopOf="parent">
+
+            <!-- Brand Pre-Title Tag (e.g. ZUBFLIX SERIES / MOVIE) -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="6dp">
+
+                <TextView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:background="@drawable/bg_tv_card_brand_badge"
+                    android:text="Z"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:fontFamily="sans-serif-black" />
+
+                <TextView
+                    android:id="@+id/tv_hero_brand"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="SERIES"
+                    android:textColor="#D0D5DD"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.18" />
+            </LinearLayout>
 
             <!-- Hero Title -->
             <TextView
@@ -223,31 +263,80 @@
                 android:textSize="32sp"
                 android:textStyle="bold"
                 android:fontFamily="sans-serif-black"
+                android:shadowColor="#CC000000"
+                android:shadowDx="0"
+                android:shadowDy="2"
+                android:shadowRadius="8"
                 android:maxLines="2"
                 android:ellipsize="end" />
 
-            <!-- Metadata Badges Row -->
+            <!-- Metadata Line (Dot-separated & Outlined Badges) -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="8dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
-                <!-- Rating -->
+                <!-- Year -->
+                <TextView
+                    android:id="@+id/tv_hero_year"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="2025"
+                    android:textColor="#C4C8D0"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <!-- Dot Divider -->
+                <TextView
+                    android:id="@+id/tv_hero_dot_1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="8dp"
+                    android:text="•"
+                    android:textColor="#707684"
+                    android:textSize="12sp" />
+
+                <!-- Episodes or Type -->
+                <TextView
+                    android:id="@+id/tv_hero_source"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Series"
+                    android:textColor="#C4C8D0"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <!-- Spec 2: 5.1 Audio -->
+                <TextView
+                    android:id="@+id/tv_hero_badge_audio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/bg_tv_spec_badge"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="1dp"
+                    android:text="5.1"
+                    android:textColor="#D8DCF0"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <!-- Rating Outlined Badge -->
                 <LinearLayout
                     android:id="@+id/tv_hero_rating_badge"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/bg_source_selector"
-                    android:paddingHorizontal="8dp"
-                    android:paddingVertical="3dp"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/bg_tv_spec_badge"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="1dp"
                     android:orientation="horizontal"
                     android:gravity="center_vertical">
 
                     <ImageView
-                        android:layout_width="12dp"
-                        android:layout_height="12dp"
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
                         android:src="@drawable/ic_star"
                         app:tint="#FFD700" />
 
@@ -255,162 +344,55 @@
                         android:id="@+id/tv_hero_rating"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
+                        android:layout_marginStart="3dp"
                         android:text="8.5"
                         android:textColor="#FFFFFF"
-                        android:textSize="12sp"
+                        android:textSize="10sp"
                         android:textStyle="bold" />
                 </LinearLayout>
-
-                <!-- Year -->
-                <TextView
-                    android:id="@+id/tv_hero_year"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
-                    android:text="2024"
-                    android:textColor="#C0C4CC"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-                <!-- Quality Badge -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
-                    android:background="@drawable/bg_source_selector"
-                    android:paddingHorizontal="6dp"
-                    android:paddingVertical="2dp"
-                    android:text="4K HDR"
-                    android:textColor="#E50914"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
-
-                <!-- Type / Source Badge -->
-                <TextView
-                    android:id="@+id/tv_hero_source"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
-                    android:text="Movie"
-                    android:textColor="#A0A5B0"
-                    android:textSize="13sp" />
             </LinearLayout>
 
-            <!-- Hero Synopsis -->
+            <!-- Hero Synopsis (Clean 3-line description on left side) -->
             <TextView
                 android:id="@+id/tv_hero_overview"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:maxWidth="640dp"
+                android:layout_marginTop="8dp"
+                android:maxWidth="480dp"
                 android:text="Movie description synopsis goes here..."
-                android:textColor="#B0B5C0"
-                android:textSize="13sp"
+                android:textColor="#C0C5D0"
+                android:textSize="12.5sp"
                 android:lineSpacingExtra="3dp"
                 android:maxLines="3"
                 android:ellipsize="end" />
 
-            <!-- Hero Action Buttons -->
+            <!-- Netflix-Style Contextual Highlight Tagline -->
             <LinearLayout
-                android:id="@+id/tv_hero_buttons_layout"
+                android:id="@+id/tv_hero_highlight_tag"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_source_selector"
                 android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp">
 
-                <!-- Play Button -->
-                <LinearLayout
-                    android:id="@+id/btn_tv_hero_play"
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:src="@drawable/ic_movie"
+                    app:tint="#E50914" />
+
+                <TextView
+                    android:id="@+id/tv_hero_highlight_text"
                     android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:background="@drawable/bg_tv_button_focus"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingHorizontal="18dp"
-                    android:focusable="true"
-                    android:clickable="true"
-                    android:contentDescription="Play Featured">
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_play_premium"
-                        app:tint="#FFFFFF" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="Watch Now"
-                        android:textColor="#FFFFFF"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <!-- Details Button -->
-                <LinearLayout
-                    android:id="@+id/btn_tv_hero_details"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:layout_marginStart="12dp"
-                    android:background="@drawable/bg_tv_button_focus"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingHorizontal="16dp"
-                    android:focusable="true"
-                    android:clickable="true"
-                    android:contentDescription="View Details">
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_info"
-                        app:tint="#D0D3D9" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="Details"
-                        android:textColor="#D0D3D9"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <!-- My List Button -->
-                <LinearLayout
-                    android:id="@+id/btn_tv_hero_mylist"
-                    android:layout_width="wrap_content"
-                    android:layout_height="42dp"
-                    android:layout_marginStart="12dp"
-                    android:background="@drawable/bg_tv_button_focus"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingHorizontal="16dp"
-                    android:focusable="true"
-                    android:clickable="true"
-                    android:contentDescription="Add to My List">
-
-                    <ImageView
-                        android:id="@+id/iv_tv_hero_mylist"
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_plus"
-                        app:tint="#D0D3D9" />
-
-                    <TextView
-                        android:id="@+id/tv_tv_hero_mylist_text"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="My List"
-                        android:textColor="#D0D3D9"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="Top 10 Trending • Stream instantly"
+                    android:textColor="#E0E3EA"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
             </LinearLayout>
 
         </LinearLayout>
@@ -420,7 +402,7 @@
             android:id="@+id/tv_rows_frame"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="4dp"
             app:layout_constraintTop_toBottomOf="@id/tv_hero_details_layout"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"

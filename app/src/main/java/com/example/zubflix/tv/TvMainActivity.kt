@@ -4,7 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import coil.load
 import com.example.R
@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class TvMainActivity : AppCompatActivity() {
+class TvMainActivity : FragmentActivity() {
 
     private lateinit var binding: ActivityTvMainBinding
     private lateinit var rowsFragment: TvHomeRowsFragment
@@ -32,7 +32,6 @@ class TvMainActivity : AppCompatActivity() {
     private val providerCategories = mutableListOf<StreamingCategory>()
     private var continueWatchingCategory: StreamingCategory? = null
     private var currentlyFocusedItem: StreamingItem? = null
-    private var isInMyList = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,7 +44,6 @@ class TvMainActivity : AppCompatActivity() {
 
         setupRowsFragment()
         setupSidebarListeners()
-        setupHeroActionListeners()
         updateActiveProviderDisplay()
         loadHomeData()
         observeWatchHistory()
@@ -113,48 +111,46 @@ class TvMainActivity : AppCompatActivity() {
         binding.tvActiveProviderName.text = selectedSource.name
     }
 
-    private fun setupHeroActionListeners() {
-        binding.btnTvHeroPlay.setOnClickListener {
-            val item = currentlyFocusedItem ?: return@setOnClickListener
-            val intent = Intent(this, DetailsActivity::class.java).apply {
-                putExtra("ITEM_ID", item.id)
-                putExtra("SOURCE_NAME", item.sourceName)
-                putExtra("AUTO_PLAY", true)
-            }
-            startActivity(intent)
-        }
-
-        binding.btnTvHeroDetails.setOnClickListener {
-            val item = currentlyFocusedItem ?: return@setOnClickListener
-            handleItemClick(item)
-        }
-
-        binding.btnTvHeroMylist.setOnClickListener {
-            val item = currentlyFocusedItem ?: return@setOnClickListener
-            toggleMyList(item)
-        }
-    }
-
     private fun handleItemClick(item: StreamingItem) {
         if (item.isCategory) {
             val intent = Intent(this, CategoryViewActivity::class.java).apply {
                 putExtra("CATEGORY_ID", item.id)
-                putExtra("CATEGORY_TITLE", item.title)
-                putExtra("SOURCE_NAME", item.sourceName)
+                putExtra("CATEGORY_TITLE", item.title.removePrefix("See All ").ifBlank { item.id })
+                val src = item.sourceName?.takeIf { it.isNotBlank() } ?: SourceManager.getSelectedSource(this@TvMainActivity).name
+                putExtra("SOURCE_NAME", src)
             }
             startActivity(intent)
         } else {
-            val intent = Intent(this, DetailsActivity::class.java).apply {
-                putExtra("ITEM_ID", item.id)
-                putExtra("SOURCE_NAME", item.sourceName)
+            val srcItem = if (item.sourceName.isNullOrBlank()) {
+                item.copy(sourceName = SourceManager.getSelectedSource(this).name)
+            } else {
+                item
             }
-            startActivity(intent)
+            DetailsActivity.start(this, srcItem)
         }
     }
 
     private fun updateHeroBanner(item: StreamingItem) {
         currentlyFocusedItem = item
 
+        if (item.isCategory) {
+            val cleanTitle = item.title.removePrefix("See All ").ifBlank { item.id }
+            binding.tvHeroBrand.text = "COLLECTION"
+            binding.tvHeroTitle.text = cleanTitle
+            binding.tvHeroRatingBadge.visibility = View.GONE
+            binding.tvHeroYear.visibility = View.GONE
+            binding.tvHeroDot1.visibility = View.GONE
+            binding.tvHeroBadgeAudio.visibility = View.GONE
+            binding.tvHeroSource.text = "Category"
+            binding.tvHeroOverview.text = item.description?.takeIf { it.isNotBlank() } ?: "Browse the complete collection of titles in $cleanTitle."
+            binding.tvHeroHighlightTag.visibility = View.GONE
+            return
+        }
+
+        // Brand tag
+        binding.tvHeroBrand.text = if (item.isSeries) "SERIES" else "MOVIE"
+
+        // Title
         binding.tvHeroTitle.text = item.title
 
         // Rating
@@ -177,17 +173,31 @@ class TvMainActivity : AppCompatActivity() {
         if (!year.isNullOrBlank()) {
             binding.tvHeroYear.text = year
             binding.tvHeroYear.visibility = View.VISIBLE
+            binding.tvHeroDot1.visibility = View.VISIBLE
         } else {
             binding.tvHeroYear.visibility = View.GONE
+            binding.tvHeroDot1.visibility = View.GONE
         }
 
         // Type
         binding.tvHeroSource.text = if (item.isSeries) "Series" else "Movie"
+        binding.tvHeroBadgeAudio.visibility = View.VISIBLE
 
         // Synopsis
         val overview = item.description?.takeIf { it.isNotBlank() }
-            ?: "Press 'Watch Now' or 'Details' to stream instantly or discover more info."
+            ?: "Click or press Select to stream instantly or discover more episodes and details."
         binding.tvHeroOverview.text = overview
+
+        // Highlight tagline (Netflix style)
+        binding.tvHeroHighlightTag.visibility = View.VISIBLE
+        val ratingNum = rating?.replace("/10", "")?.trim()?.toDoubleOrNull() ?: 0.0
+        if (ratingNum >= 7.5) {
+            binding.tvHeroHighlightText.text = "⭐ Top Rated (${String.format("%.1f", ratingNum)}/10) • 4K HDR Audio"
+        } else if (item.isSeries) {
+            binding.tvHeroHighlightText.text = "📺 Full Seasons Available • Instant Stream"
+        } else {
+            binding.tvHeroHighlightText.text = "🔥 Trending on Zubflix • Press OK to Play"
+        }
 
         // Backdrop Art
         val backdropUrl = item.backdropUrl?.takeIf { it.isNotBlank() }
@@ -197,55 +207,6 @@ class TvMainActivity : AppCompatActivity() {
             binding.tvHeroBackdrop.load(backdropUrl) {
                 crossfade(300)
             }
-        }
-
-        checkMyListStatus(item)
-    }
-
-    private fun checkMyListStatus(item: StreamingItem) {
-        lifecycleScope.launch {
-            val db = AppDatabase.getDatabase(this@TvMainActivity)
-            val exists = withContext(Dispatchers.IO) {
-                db.myListDao().isItemInList(item.id)
-            }
-            isInMyList = exists
-            updateMyListButtonUi()
-        }
-    }
-
-    private fun toggleMyList(item: StreamingItem) {
-        lifecycleScope.launch {
-            val db = AppDatabase.getDatabase(this@TvMainActivity)
-            withContext(Dispatchers.IO) {
-                if (isInMyList) {
-                    db.myListDao().deleteById(item.id)
-                } else {
-                    val entity = MyListEntity(
-                        itemId = item.id,
-                        title = item.title,
-                        imageUrl = item.imageUrl ?: item.backdropUrl,
-                        isSeries = item.isSeries,
-                        sourceName = item.sourceName ?: SourceManager.getSelectedSource(this@TvMainActivity).name
-                    )
-                    db.myListDao().insert(entity)
-                }
-            }
-            isInMyList = !isInMyList
-            updateMyListButtonUi()
-            val msg = if (isInMyList) "Added to My List" else "Removed from My List"
-            Toast.makeText(this@TvMainActivity, msg, Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun updateMyListButtonUi() {
-        if (isInMyList) {
-            binding.ivTvHeroMylist.setImageResource(R.drawable.ic_check)
-            binding.ivTvHeroMylist.setColorFilter(0xFF00E676.toInt())
-            binding.tvTvHeroMylistText.text = "In My List"
-        } else {
-            binding.ivTvHeroMylist.setImageResource(R.drawable.ic_plus)
-            binding.ivTvHeroMylist.setColorFilter(0xFFD0D3D9.toInt())
-            binding.tvTvHeroMylistText.text = "My List"
         }
     }
 

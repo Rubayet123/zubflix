@@ -12,6 +12,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.sync.withPermit
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
@@ -1547,29 +1548,32 @@ class NuvioSource(private val context: Context? = null) : StreamingSource {
             }
 
             kotlinx.coroutines.supervisorScope {
+                val scraperSemaphore = kotlinx.coroutines.sync.Semaphore(4)
                 val deferredList = mutableListOf<kotlinx.coroutines.Deferred<Unit>>()
 
                 if (bdixEnabled && context != null) {
                     for (scraper in activeLocalScrapers) {
                         deferredList.add(async<Unit> {
-                            try {
-                                val queryTitle = if (contentTitle.isNotBlank()) contentTitle else primaryId
-                                val meta = com.example.zubflix.bdix.BDIXScraper.MediaMeta(
-                                    name = queryTitle,
-                                    year = contentYear
-                                )
-                                Log.d("Nuvio", "Executing local scraper ${scraper.name} (${scraper.id}) for $queryTitle")
-                                val scraperStreams = kotlinx.coroutines.withTimeoutOrNull(20000) {
-                                    scraper.getStreams(type, meta, season, episode)
-                                } ?: emptyList()
-                                processStreams(scraperStreams.map {
-                                    Pair(formatLocalStreamDisplayName(it, "[Local Scraper]"), it.url)
-                                })
-                            } catch (t: Throwable) {
-                                Log.e("Nuvio", "Error executing local scraper ${scraper.id}: ${t.message}", t)
-                            } finally {
-                                synchronized(this@NuvioSource) { doneSources++ }
-                                onProgress(doneSources, totalSources)
+                            scraperSemaphore.withPermit {
+                                try {
+                                    val queryTitle = if (contentTitle.isNotBlank()) contentTitle else primaryId
+                                    val meta = com.example.zubflix.bdix.BDIXScraper.MediaMeta(
+                                        name = queryTitle,
+                                        year = contentYear
+                                    )
+                                    Log.d("Nuvio", "Executing local scraper ${scraper.name} (${scraper.id}) for $queryTitle")
+                                    val scraperStreams = kotlinx.coroutines.withTimeoutOrNull(20000) {
+                                        scraper.getStreams(type, meta, season, episode)
+                                    } ?: emptyList()
+                                    processStreams(scraperStreams.map {
+                                        Pair(formatLocalStreamDisplayName(it, "[Local Scraper]"), it.url)
+                                    })
+                                } catch (t: Throwable) {
+                                    Log.e("Nuvio", "Error executing local scraper ${scraper.id}: ${t.message}", t)
+                                } finally {
+                                    synchronized(this@NuvioSource) { doneSources++ }
+                                    onProgress(doneSources, totalSources)
+                                }
                             }
                         })
                     }
@@ -1577,26 +1581,28 @@ class NuvioSource(private val context: Context? = null) : StreamingSource {
                 if (context != null) {
                     for (csPlugin in activeCloudStreamPlugins) {
                         deferredList.add(async<Unit> {
-                            try {
-                                Log.d("Nuvio", "Executing CloudStream plugin ${csPlugin.name} (${csPlugin.id})")
-                                val csStreams = kotlinx.coroutines.withTimeoutOrNull(15000) {
-                                    com.example.zubflix.cloudstream.CloudStreamDexLoader.searchAndFetchStreams(
-                                        context = context,
-                                        plugin = csPlugin,
-                                        queryTitle = if (contentTitle.isNotBlank()) contentTitle else primaryId,
-                                        isSeries = (type == "tv" || type == "series"),
-                                        season = season,
-                                        episode = episode
-                                    )
-                                } ?: emptyList()
-                                processStreams(csStreams.map {
-                                    Pair(formatLocalStreamDisplayName(it, "[CloudStream Extension]"), it.url)
-                                })
-                            } catch (t: Throwable) {
-                                Log.e("Nuvio", "Error executing CloudStream plugin ${csPlugin.id}: ${t.message}", t)
-                            } finally {
-                                synchronized(this@NuvioSource) { doneSources++ }
-                                onProgress(doneSources, totalSources)
+                            scraperSemaphore.withPermit {
+                                try {
+                                    Log.d("Nuvio", "Executing CloudStream plugin ${csPlugin.name} (${csPlugin.id})")
+                                    val csStreams = kotlinx.coroutines.withTimeoutOrNull(15000) {
+                                        com.example.zubflix.cloudstream.CloudStreamDexLoader.searchAndFetchStreams(
+                                            context = context,
+                                            plugin = csPlugin,
+                                            queryTitle = if (contentTitle.isNotBlank()) contentTitle else primaryId,
+                                            isSeries = (type == "tv" || type == "series"),
+                                            season = season,
+                                            episode = episode
+                                        )
+                                    } ?: emptyList()
+                                    processStreams(csStreams.map {
+                                        Pair(formatLocalStreamDisplayName(it, "[CloudStream Extension]"), it.url)
+                                    })
+                                } catch (t: Throwable) {
+                                    Log.e("Nuvio", "Error executing CloudStream plugin ${csPlugin.id}: ${t.message}", t)
+                                } finally {
+                                    synchronized(this@NuvioSource) { doneSources++ }
+                                    onProgress(doneSources, totalSources)
+                                }
                             }
                         })
                     }

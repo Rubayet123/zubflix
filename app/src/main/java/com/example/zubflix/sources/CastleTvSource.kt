@@ -824,7 +824,9 @@ class CastleTvSource : StreamingSource {
                     } else mainVideoUrl
 
                     if (!vUrl.isNullOrBlank()) {
-                        val label = "$prefix $resDesc"
+                        val isPreview = vUrl.contains("preview", ignoreCase = true) || resDesc.contains("preview", ignoreCase = true)
+                        val previewTag = if (isPreview) " [Preview ⚠️]" else ""
+                        val label = "$prefix$previewTag $resDesc"
                         streams[label] = "$vUrl######$PLAYBACK_HEADERS_JSON"
                     }
                 }

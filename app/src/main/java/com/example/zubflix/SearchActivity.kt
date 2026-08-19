@@ -118,11 +118,12 @@ class SearchActivity : AppCompatActivity() {
                     }
                     startActivity(intent)
                 } else {
-                    val intent = Intent(this, DetailsActivity::class.java).apply {
-                        putExtra("ITEM_ID", item.id)
-                        putExtra("SOURCE_NAME", item.sourceName ?: SourceManager.getSelectedSource(this@SearchActivity).name)
+                    val srcItem = if (item.sourceName.isNullOrBlank()) {
+                        item.copy(sourceName = SourceManager.getSelectedSource(this@SearchActivity).name)
+                    } else {
+                        item
                     }
-                    startActivity(intent)
+                    DetailsActivity.start(this, srcItem)
                 }
             },
             onViewMoreClick = { category ->

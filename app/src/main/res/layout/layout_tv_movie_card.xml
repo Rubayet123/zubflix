@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="145dp"
-    android:layout_height="225dp"
-    android:layout_margin="8dp"
+    android:layout_width="142dp"
+    android:layout_height="218dp"
+    android:layout_margin="7dp"
     android:clipChildren="false"
     android:clipToPadding="false"
     android:focusable="true"
@@ -13,10 +13,11 @@
         android:id="@+id/tv_card_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:cardCornerRadius="10dp"
-        app:cardElevation="4dp"
+        app:cardCornerRadius="6dp"
+        app:cardElevation="3dp"
         app:cardBackgroundColor="#14171E">
 
+        <!-- Full Poster Image -->
         <ImageView
             android:id="@+id/tv_card_poster"
             android:layout_width="match_parent"
@@ -24,30 +25,31 @@
             android:scaleType="centerCrop"
             android:contentDescription="Poster" />
 
-        <!-- Subtle bottom gradient for title readability -->
+        <!-- Bottom Gradient Scrim for Legibility -->
         <View
+            android:id="@+id/tv_card_scrim"
             android:layout_width="match_parent"
-            android:layout_height="80dp"
+            android:layout_height="75dp"
             android:layout_gravity="bottom"
             android:background="@drawable/bg_tv_hero_bottom_gradient" />
 
-        <!-- Rating Badge -->
+        <!-- Top-Right Rating / Top 10 Badge -->
         <LinearLayout
             android:id="@+id/tv_card_rating_badge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="top|end"
             android:layout_margin="6dp"
-            android:background="@drawable/bg_source_selector"
+            android:background="@drawable/bg_tv_spec_badge"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingHorizontal="6dp"
-            android:paddingVertical="3dp"
+            android:paddingHorizontal="5dp"
+            android:paddingVertical="2dp"
             android:visibility="gone">
 
             <ImageView
-                android:layout_width="11dp"
-                android:layout_height="11dp"
+                android:layout_width="9dp"
+                android:layout_height="9dp"
                 android:src="@drawable/ic_star"
                 app:tint="#FFD700" />
 
@@ -55,10 +57,47 @@
                 android:id="@+id/tv_card_rating_text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="3dp"
+                android:layout_marginStart="2dp"
                 android:textColor="#FFFFFF"
-                android:textSize="10sp"
+                android:textSize="9sp"
                 android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- See All / Explore Category Center Container -->
+        <LinearLayout
+            android:id="@+id/tv_see_all_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="12dp"
+            android:background="#161820"
+            android:visibility="gone">
+
+            <FrameLayout
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_circle_button"
+                android:layout_marginBottom="10dp">
+
+                <ImageView
+                    android:id="@+id/tv_see_all_icon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_arrow_forward"
+                    app:tint="#E50914" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tv_see_all_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="See All"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:gravity="center" />
         </LinearLayout>
 
         <!-- Continue Watching Progress Bar -->
@@ -66,24 +105,66 @@
             android:id="@+id/tv_card_progress_bar"
             style="@style/Widget.AppCompat.ProgressBar.Horizontal"
             android:layout_width="match_parent"
-            android:layout_height="4dp"
+            android:layout_height="3dp"
             android:layout_gravity="bottom"
             android:progressDrawable="@drawable/bg_playback_progress"
             android:visibility="gone" />
 
-        <!-- Title Label -->
-        <TextView
-            android:id="@+id/tv_card_title"
+        <!-- Bottom Layout Container with Title & Focused Action Pill -->
+        <LinearLayout
+            android:id="@+id/tv_card_bottom_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
-            android:layout_marginBottom="6dp"
-            android:paddingHorizontal="8dp"
-            android:textColor="#F0F0F0"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:maxLines="2"
-            android:ellipsize="end" />
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:paddingHorizontal="7dp"
+            android:paddingBottom="6dp">
+
+            <!-- Title Label -->
+            <TextView
+                android:id="@+id/tv_card_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#F4F4F6"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:shadowColor="#EE000000"
+                android:shadowDx="0"
+                android:shadowDy="1"
+                android:shadowRadius="4" />
+
+            <!-- Netflix Focused Action Button (Watch Now / Play) -->
+            <LinearLayout
+                android:id="@+id/tv_card_action_pill"
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/bg_tv_card_action_pill"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:src="@drawable/ic_play_premium"
+                    app:tint="#111111" />
+
+                <TextView
+                    android:id="@+id/tv_card_action_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="Watch Now"
+                    android:textColor="#111111"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+        </LinearLayout>
 
         <!-- High-Contrast Focus Ring Overlay -->
         <View

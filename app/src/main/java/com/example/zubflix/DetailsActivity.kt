@@ -59,6 +59,26 @@ class DetailsActivity : AppCompatActivity() {
         itemId = intent.getStringExtra("ITEM_ID") ?: ""
         sourceName = intent.getStringExtra("SOURCE_NAME") ?: ""
 
+        // Instant rendering: check for pre-filled item metadata passed in Intent
+        val prefillTitle = intent.getStringExtra("ITEM_TITLE")
+        if (!prefillTitle.isNullOrEmpty()) {
+            val prefillItem = StreamingItem(
+                id = itemId,
+                title = prefillTitle,
+                isSeries = intent.getBooleanExtra("ITEM_IS_SERIES", false),
+                sourceName = sourceName,
+                imageUrl = intent.getStringExtra("ITEM_POSTER"),
+                backdropUrl = intent.getStringExtra("ITEM_BACKDROP"),
+                description = intent.getStringExtra("ITEM_DESCRIPTION"),
+                streamUrl = intent.getStringExtra("ITEM_STREAM_URL"),
+                rating = intent.getStringExtra("ITEM_RATING"),
+                year = intent.getStringExtra("ITEM_YEAR"),
+                quality = intent.getStringExtra("ITEM_QUALITY")
+            )
+            currentItem = prefillItem
+            displayDetails(prefillItem)
+        }
+
         binding.btnBack.setOnClickListener { finish() }
 
         setupListeners()
@@ -135,10 +155,12 @@ class DetailsActivity : AppCompatActivity() {
     }
 
     private fun loadDetails() {
-        binding.loadingProgress.visibility = View.VISIBLE
-        val isHomeFlixTv = com.example.zubflix.util.AppearanceSettings.getAppTheme(this) == com.example.zubflix.util.AppearanceSettings.THEME_HOMEFLIX_TV
-        if (!isHomeFlixTv) {
+        if (currentItem == null || currentItem?.title.isNullOrEmpty()) {
+            binding.loadingProgress.visibility = View.VISIBLE
             binding.scrollView.visibility = View.GONE
+        } else {
+            binding.loadingProgress.visibility = View.GONE
+            binding.scrollView.visibility = View.VISIBLE
         }
 
         lifecycleScope.launch {
@@ -167,17 +189,33 @@ class DetailsActivity : AppCompatActivity() {
                 }
 
                 if (details != null) {
-                    currentItem = details
-                    displayDetails(details)
+                    val prefill = currentItem
+                    val mergedDetails = if (prefill != null) {
+                        details.copy(
+                            imageUrl = details.imageUrl?.takeIf { it.isNotBlank() } ?: prefill.imageUrl,
+                            backdropUrl = details.backdropUrl?.takeIf { it.isNotBlank() } ?: prefill.backdropUrl,
+                            description = details.description?.takeIf { it.isNotBlank() } ?: prefill.description,
+                            rating = details.rating?.takeIf { it.isNotBlank() } ?: prefill.rating,
+                            year = details.year?.takeIf { it.isNotBlank() } ?: prefill.year,
+                            quality = details.quality?.takeIf { it.isNotBlank() } ?: prefill.quality,
+                            streamUrl = details.streamUrl?.takeIf { it.isNotBlank() } ?: prefill.streamUrl
+                        )
+                    } else {
+                        details
+                    }
+                    currentItem = mergedDetails
+                    displayDetails(mergedDetails)
                     checkMyListStatus()
-                } else {
+                } else if (currentItem == null) {
                     Toast.makeText(this@DetailsActivity, "Failed to load item details", Toast.LENGTH_SHORT).show()
                     finish()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                Toast.makeText(this@DetailsActivity, "Error loading details: ${e.message}", Toast.LENGTH_SHORT).show()
-                finish()
+                if (currentItem == null) {
+                    Toast.makeText(this@DetailsActivity, "Error loading details: ${e.message}", Toast.LENGTH_SHORT).show()
+                    finish()
+                }
             } finally {
                 binding.loadingProgress.visibility = View.GONE
             }
@@ -185,10 +223,7 @@ class DetailsActivity : AppCompatActivity() {
     }
 
     private fun displayDetails(item: StreamingItem) {
-        val isHomeFlixTv = com.example.zubflix.util.AppearanceSettings.getAppTheme(this) == com.example.zubflix.util.AppearanceSettings.THEME_HOMEFLIX_TV
-        if (!isHomeFlixTv) {
-            binding.scrollView.visibility = View.VISIBLE
-        }
+        binding.scrollView.visibility = View.VISIBLE
 
         binding.tvTitle.text = item.title
 
@@ -212,7 +247,6 @@ class DetailsActivity : AppCompatActivity() {
         val ratingText = if (!item.rating.isNullOrEmpty() && item.rating != "0.0") "★ ${item.rating}" else "★ 7.5"
         binding.tvMatch.text = ratingText
         binding.tvYear.text = item.year ?: "2026"
-        binding.tvQuality.text = item.quality ?: "4K Ultra HD"
         binding.tvProvider.text = sourceName.ifEmpty { "Nuvio" }
 
         // Dynamic Genre Capsules
@@ -523,7 +557,7 @@ class DetailsActivity : AppCompatActivity() {
                     lifecycleScope.launch(Dispatchers.Main) {
                         val streamList = streams.toList()
                         allSourceList.addAll(streamList)
-                        allSourceList.sortByDescending { com.example.zubflix.util.PlaybackSettings.getAutoPlayStreamScore(this@DetailsActivity, it.first) }
+                        allSourceList.sortByDescending { com.example.zubflix.util.PlaybackSettings.getAutoPlayStreamScore(this@DetailsActivity, it.first, it.second) }
 
                         com.example.zubflix.util.ActiveStreamManager.addStreams(
                             this@DetailsActivity,
@@ -655,8 +689,8 @@ class DetailsActivity : AppCompatActivity() {
         return ParsedStream(name, url, addonName, moniker, torrentName, attributes)
     }
 
-    private fun getStreamQualityScore(name: String): Int {
-        return com.example.zubflix.util.PlaybackSettings.getAutoPlayStreamScore(this, name)
+    private fun getStreamQualityScore(name: String, url: String? = null): Int {
+        return com.example.zubflix.util.PlaybackSettings.getAutoPlayStreamScore(this, name, url)
     }
 
     private fun getScraperCategoryTags(streamName: String): Set<String> {
@@ -831,6 +865,12 @@ class DetailsActivity : AppCompatActivity() {
                         }
                     }
                 }
+
+                val lowerStream = (item.first + " " + item.second).lowercase()
+                if (lowerStream.contains("preview") || lowerStream.contains("_preview_") || lowerStream.contains("sample") || lowerStream.contains("trailer")) {
+                    holder.tvBadgeQuality.text = "⚠️ Preview / Sample"
+                    holder.tvBadgeQuality.visibility = android.view.View.VISIBLE
+                }
                 
                 holder.itemView.setOnClickListener {
                     dialog.dismiss()
@@ -957,6 +997,13 @@ class DetailsActivity : AppCompatActivity() {
             tvCount.visibility = if (allSourceList.isNotEmpty()) android.view.View.VISIBLE else android.view.View.GONE
         }
 
+        var scrapingJob: kotlinx.coroutines.Job? = null
+
+        dialog.setOnDismissListener {
+            scrapingJob?.cancel()
+            scrapingJob = null
+        }
+
         if (preScrapedStreams != null) {
             progressScraping.visibility = android.view.View.GONE
             allSourceList.addAll(preScrapedStreams)
@@ -970,7 +1017,7 @@ class DetailsActivity : AppCompatActivity() {
                 tvSubtitle.text = "Select a stream for: $title"
             }
         } else {
-            lifecycleScope.launch {
+            scrapingJob = lifecycleScope.launch {
                 try {
                     Log.d("DetailsActivity", "🔍 Scraping requested. sourceName='$sourceName', lazyUrl='$lazyUrl'")
                     val rawSource = SourceManager.getSourceByName(sourceName)
@@ -999,7 +1046,7 @@ class DetailsActivity : AppCompatActivity() {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                 emptyStateView.visibility = android.view.View.GONE
                                 allSourceList.addAll(streams.toList())
-                                allSourceList.sortByDescending { getStreamQualityScore(it.first) }
+                                allSourceList.sortByDescending { getStreamQualityScore(it.first, it.second) }
                                 updateStreamFilterUI()
                             }
                         }
@@ -1017,7 +1064,7 @@ class DetailsActivity : AppCompatActivity() {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                 emptyStateView.visibility = android.view.View.GONE
                                 allSourceList.addAll(streams.toList())
-                                allSourceList.sortByDescending { getStreamQualityScore(it.first) }
+                                allSourceList.sortByDescending { getStreamQualityScore(it.first, it.second) }
                                 updateStreamFilterUI()
                             }
                         }
@@ -1035,7 +1082,7 @@ class DetailsActivity : AppCompatActivity() {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                 emptyStateView.visibility = android.view.View.GONE
                                 allSourceList.addAll(streams.toList())
-                                allSourceList.sortByDescending { getStreamQualityScore(it.first) }
+                                allSourceList.sortByDescending { getStreamQualityScore(it.first, it.second) }
                                 updateStreamFilterUI()
                             }
                         }
@@ -1053,7 +1100,7 @@ class DetailsActivity : AppCompatActivity() {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                 emptyStateView.visibility = android.view.View.GONE
                                 allSourceList.addAll(streams.toList())
-                                allSourceList.sortByDescending { getStreamQualityScore(it.first) }
+                                allSourceList.sortByDescending { getStreamQualityScore(it.first, it.second) }
                                 updateStreamFilterUI()
                             }
                         }
@@ -1071,7 +1118,7 @@ class DetailsActivity : AppCompatActivity() {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                 emptyStateView.visibility = android.view.View.GONE
                                 allSourceList.addAll(streams.toList())
-                                allSourceList.sortByDescending { getStreamQualityScore(it.first) }
+                                allSourceList.sortByDescending { getStreamQualityScore(it.first, it.second) }
                                 updateStreamFilterUI()
                             }
                         }
@@ -1089,7 +1136,7 @@ class DetailsActivity : AppCompatActivity() {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                 emptyStateView.visibility = android.view.View.GONE
                                 allSourceList.addAll(streams.toList())
-                                allSourceList.sortByDescending { getStreamQualityScore(it.first) }
+                                allSourceList.sortByDescending { getStreamQualityScore(it.first, it.second) }
                                 updateStreamFilterUI()
                             }
                         }
@@ -1107,7 +1154,7 @@ class DetailsActivity : AppCompatActivity() {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                 emptyStateView.visibility = android.view.View.GONE
                                 allSourceList.addAll(streams.toList())
-                                allSourceList.sortByDescending { getStreamQualityScore(it.first) }
+                                allSourceList.sortByDescending { getStreamQualityScore(it.first, it.second) }
                                 updateStreamFilterUI()
                             }
                         }
@@ -1125,7 +1172,7 @@ class DetailsActivity : AppCompatActivity() {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                 emptyStateView.visibility = android.view.View.GONE
                                 allSourceList.addAll(streams.toList())
-                                allSourceList.sortByDescending { getStreamQualityScore(it.first) }
+                                allSourceList.sortByDescending { getStreamQualityScore(it.first, it.second) }
                                 updateStreamFilterUI()
                             }
                         }
@@ -1138,7 +1185,7 @@ class DetailsActivity : AppCompatActivity() {
                         if (resolvedStreams.isNotEmpty()) {
                             emptyStateView.visibility = android.view.View.GONE
                             allSourceList.addAll(resolvedStreams.toList())
-                            allSourceList.sortByDescending { getStreamQualityScore(it.first) }
+                            allSourceList.sortByDescending { getStreamQualityScore(it.first, it.second) }
                             updateStreamFilterUI()
                         }
                     }
@@ -1357,5 +1404,24 @@ class DetailsActivity : AppCompatActivity() {
             return true
         }
         return super.onOptionsItemSelected(item)
+    }
+
+    companion object {
+        fun start(context: android.content.Context, item: StreamingItem) {
+            val intent = Intent(context, DetailsActivity::class.java).apply {
+                putExtra("ITEM_ID", item.id)
+                putExtra("SOURCE_NAME", item.sourceName ?: "")
+                putExtra("ITEM_TITLE", item.title)
+                putExtra("ITEM_POSTER", item.imageUrl)
+                putExtra("ITEM_BACKDROP", item.backdropUrl)
+                putExtra("ITEM_YEAR", item.year)
+                putExtra("ITEM_RATING", item.rating)
+                putExtra("ITEM_QUALITY", item.quality)
+                putExtra("ITEM_DESCRIPTION", item.description)
+                putExtra("ITEM_IS_SERIES", item.isSeries)
+                putExtra("ITEM_STREAM_URL", item.streamUrl)
+            }
+            context.startActivity(intent)
+        }
     }
 }

@@ -58,10 +58,20 @@ object PlaybackSettings {
         }
     }
 
-    fun getAutoPlayStreamScore(context: Context, streamName: String): Int {
+    fun getAutoPlayStreamScore(context: Context, streamName: String, streamUrl: String? = null): Int {
         var score = getStreamQualityScore(streamName)
         if (isProviderExcluded(context, streamName)) {
             score -= 10000
+        }
+        val lowerName = streamName.lowercase()
+        val lowerUrl = streamUrl?.lowercase() ?: ""
+        if (lowerName.contains("preview") || lowerUrl.contains("preview") ||
+            lowerName.contains("sample") || lowerUrl.contains("sample") ||
+            lowerName.contains("trailer") || lowerUrl.contains("trailer") ||
+            lowerName.contains("demo") || lowerUrl.contains("demo") ||
+            lowerName.contains("10min") || lowerUrl.contains("10min") ||
+            lowerUrl.contains("_preview_") || lowerName.contains("_preview_")) {
+            score -= 100000 // Heavily penalize preview links to prevent auto-play selection
         }
         return score
     }

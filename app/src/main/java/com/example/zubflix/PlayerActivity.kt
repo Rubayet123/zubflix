@@ -112,9 +112,12 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var httpDataSourceFactory: androidx.media3.datasource.okhttp.OkHttpDataSource.Factory
     private lateinit var customDataSourceFactory: androidx.media3.datasource.DataSource.Factory
     
+    // Fallback & Retry State
+    private var transientRetryCount = 0
+
     // Progress persistence state
     private var lastSavedPosition = 0L
-    private val saveIntervalMs = 5000L
+    private val saveIntervalMs = 10000L
 
     // Gestures state
     private var originalBrightness = 0.5f
@@ -394,6 +397,13 @@ class PlayerActivity : AppCompatActivity() {
                     baseHeaders["Origin"] = origin
                     baseHeaders["Referer"] = "$origin/"
                 }
+                
+                // Specific header overrides for HDGhar / HDGharTV streams
+                if (url.contains("hdghar", ignoreCase = true) || url.contains("ghar", ignoreCase = true) || host.contains("hdghar", ignoreCase = true)) {
+                    baseHeaders["Referer"] = "https://hdghartv.cc/"
+                    baseHeaders["Origin"] = "https://hdghartv.cc"
+                    baseHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+                }
             } catch (e: Exception) {}
         }
         
@@ -637,13 +647,14 @@ class PlayerActivity : AppCompatActivity() {
         val loadControl = DefaultLoadControl.Builder()
             .setAllocator(DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE))
             .setBufferDurationsMs(
-                25000, // minBufferMs (25s min buffer)
-                60000, // maxBufferMs (60s max buffer)
+                15000, // minBufferMs (15s min buffer)
+                30000, // maxBufferMs (30s max buffer)
                 2000,  // bufferForPlaybackMs (2s fast initial playback)
                 3500   // bufferForPlaybackAfterRebufferMs (3.5s smooth recovery without stutter)
             )
-            .setPrioritizeTimeOverSizeThresholds(true)
-            .setBackBuffer(30000, true) // 30s back-buffer retained from keyframe for instant seek without network reload
+            .setTargetBufferBytes(32 * 1024 * 1024) // 32MB strict memory buffer ceiling to prevent OOM
+            .setPrioritizeTimeOverSizeThresholds(false)
+            .setBackBuffer(5000, false) // 5s back-buffer without keeping uncompressed frame blocks in RAM
             .build()
 
         // Adaptive Track Selector with audio capability fallback
@@ -661,7 +672,7 @@ class PlayerActivity : AppCompatActivity() {
 
         val renderersFactory = androidx.media3.exoplayer.DefaultRenderersFactory(this).apply {
             setEnableDecoderFallback(true)
-            setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
         }
 
         val extractorsFactory = androidx.media3.extractor.DefaultExtractorsFactory()
@@ -1094,6 +1105,7 @@ class PlayerActivity : AppCompatActivity() {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 when (playbackState) {
                     Player.STATE_READY -> {
+                        transientRetryCount = 0
                         binding.playerView.keepScreenOn = true
                         binding.loadingContainer.visibility = View.GONE
                     }
@@ -1101,8 +1113,20 @@ class PlayerActivity : AppCompatActivity() {
                         binding.loadingContainer.visibility = View.VISIBLE
                         updateLoadingSpeedText()
                     }
-                    Player.STATE_ENDED, Player.STATE_IDLE -> {
+                    Player.STATE_ENDED -> {
                         binding.playerView.keepScreenOn = false
+                        binding.loadingContainer.visibility = View.GONE
+
+                        // Detect premature stream disconnection (e.g. server closed connection abruptly before video finished)
+                        val pos = player?.currentPosition ?: 0L
+                        val dur = player?.duration ?: 0L
+                        if (dur > 30000L && pos > 2000L && pos < dur - 20000L) {
+                            android.util.Log.w("PlayerActivity", "Premature stream disconnection detected at pos $pos / dur $dur. Auto-switching to backup stream.")
+                            com.example.zubflix.util.DebugLogger.w("PlayerActivity", "Premature stream disconnection detected. Switching backup stream.")
+                            handleStreamPlaybackFailure("Premature Stream Disconnect")
+                        }
+                    }
+                    Player.STATE_IDLE -> {
                         binding.loadingContainer.visibility = View.GONE
                     }
                 }
@@ -1159,7 +1183,7 @@ class PlayerActivity : AppCompatActivity() {
                     return
                 }
 
-                // 3. Handle Transient Seek / HTTP Range / Parser Errors without immediately failing stream
+                // 3. Handle Transient Seek / HTTP Range / Parser Errors with max retry limit before switching stream
                 val isRangeOrNetworkError = cause is androidx.media3.datasource.HttpDataSource.HttpDataSourceException ||
                         cause is java.io.IOException ||
                         error.errorCode == androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
@@ -1167,8 +1191,9 @@ class PlayerActivity : AppCompatActivity() {
                         error.errorCode == androidx.media3.common.PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE
 
                 val currentPos = player?.currentPosition ?: 0L
-                if (isRangeOrNetworkError && currentPos > 0L) {
-                    android.util.Log.w("PlayerActivity", "Recovering from transient seek/range error at position $currentPos: ${error.message}")
+                if (isRangeOrNetworkError && currentPos > 0L && transientRetryCount < 2) {
+                    transientRetryCount++
+                    android.util.Log.w("PlayerActivity", "Recovering from transient seek/range error (Attempt $transientRetryCount/2) at position $currentPos: ${error.message}")
                     com.example.zubflix.util.DebugLogger.w("PlayerActivity", "Recovering stream after seek: ${error.message}")
                     player?.prepare()
                     player?.seekTo(currentPos)
@@ -1176,6 +1201,7 @@ class PlayerActivity : AppCompatActivity() {
                     return
                 }
 
+                transientRetryCount = 0
                 handleStreamPlaybackFailure(error.errorCodeName)
             }
 
@@ -1337,7 +1363,6 @@ class PlayerActivity : AppCompatActivity() {
                 streamUrl = currentStreamUrl
             )
             dao.insertOrUpdate(entity)
-            dao.trimExcessHistory()
         }
     }
 
@@ -2363,6 +2388,11 @@ class PlayerActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         statsManager.stopStatsPoller()
+        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+            try {
+                AppDatabase.getDatabase(applicationContext).watchHistoryDao().trimExcessHistory()
+            } catch (_: Exception) {}
+        }
         player?.release()
         player = null
     }
@@ -2436,17 +2466,8 @@ private class LazySubtitleDataSource(
             return bytes.size.toLong()
         }
 
-        // For all video streams (HLS, MPD, MP4, MKV), route directly through upstream or cached stream safely
-        val urlString = dataSpec.uri.toString()
-        val isProgressive = !urlString.contains(".m3u8", ignoreCase = true) && !urlString.contains(".mpd", ignoreCase = true)
-
-        activeStream = if (isProgressive) {
-            // Use direct default upstream data source for progressive seeking stability
-            defaultDataSource
-        } else {
-            cacheDataSource
-        }
-
+        // Route all video streams directly through default upstream to prevent LRU cache thrashing and disk lockup during long playback
+        activeStream = defaultDataSource
         dummyStream = null
         return activeStream!!.open(dataSpec)
     }

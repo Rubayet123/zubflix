@@ -56,11 +56,7 @@ class MyListActivity : AppCompatActivity() {
 
         adapter = CategoryItemAdapter(
             onItemClick = { item ->
-                val intent = Intent(this, DetailsActivity::class.java).apply {
-                    putExtra("ITEM_ID", item.id)
-                    putExtra("SOURCE_NAME", item.sourceName)
-                }
-                startActivity(intent)
+                DetailsActivity.start(this, item)
             },
             onViewMoreClick = null,
             isGridMode = true
