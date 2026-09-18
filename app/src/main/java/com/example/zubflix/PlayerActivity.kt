@@ -82,6 +82,7 @@ class PlayerActivity : AppCompatActivity() {
     private var videoTitle: String = ""
     private var itemId: String = ""
     private var imageUrl: String? = null
+    private var backdropUrl: String? = null
     private var isSeries: Boolean = false
     private var passedSeason: Int = -1
     private var passedEpisode: Int = -1
@@ -119,7 +120,7 @@ class PlayerActivity : AppCompatActivity() {
     private var lastSavedPosition = 0L
     private val saveIntervalMs = 10000L
 
-    // Gestures state
+    // Gestures & TV Seek state
     private var originalBrightness = 0.5f
     private var originalVolume = 0
     private var gestureOverlayJob: Job? = null
@@ -131,10 +132,13 @@ class PlayerActivity : AppCompatActivity() {
     private var isBrightnessGesture = false
     private var isScrubbing = false
     private var scrubStartPos = 0L
+    private var tvSeekAccumulatorMs = 0L
+    private var tvSeekLastTimeMs = 0L
 
     // Modular Player Components
     private lateinit var gestureController: com.example.zubflix.player.PlayerGestureController
     private lateinit var statsManager: com.example.zubflix.player.PlayerStatsManager
+    private lateinit var audioEffectManager: com.example.zubflix.player.AudioEffectManager
 
     // Subtitle Custom Preferences
     private var prefSubColor = Color.WHITE
@@ -179,8 +183,10 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         videoTitle = intent.getStringExtra("VIDEO_TITLE") ?: "Video"
-        itemId = intent.getStringExtra("ITEM_ID") ?: ""
+        val rawItemId = intent.getStringExtra("ITEM_ID") ?: ""
+        itemId = rawItemId.replace(Regex(":\\d+:\\d+$"), "")
         imageUrl = intent.getStringExtra("IMAGE_URL")
+        backdropUrl = intent.getStringExtra("BACKDROP_URL")
         isSeries = intent.getBooleanExtra("IS_SERIES", false)
         passedSeason = intent.getIntExtra("SEASON_NUMBER", -1)
         passedEpisode = intent.getIntExtra("EPISODE_NUMBER", -1)
@@ -188,31 +194,20 @@ class PlayerActivity : AppCompatActivity() {
         selectedStreamName = intent.getStringExtra("SELECTED_STREAM_NAME")
         actualImdbId = intent.getStringExtra("IMDB_ID")
 
-        // Ensure unique itemId for each episode in a series to prevent shared playback progress
-        if (isSeries && itemId.isNotEmpty()) {
-            var seasonStr: String? = if (passedSeason != -1) passedSeason.toString() else null
-            var episodeStr: String? = if (passedEpisode != -1) passedEpisode.toString() else null
-
-            if (seasonStr == null || episodeStr == null) {
+        if (isSeries) {
+            if (passedSeason == -1 || passedEpisode == -1) {
                 val match = Regex("(?i)[sS](\\d+)\\s*[eE](\\d+)").find(videoTitle)
                     ?: Regex("(?i)Season\\s*(\\d+)\\s*Episode\\s*(\\d+)").find(videoTitle)
                 if (match != null) {
-                    seasonStr = match.groupValues[1]
-                    episodeStr = match.groupValues[2]
-                }
-            }
-
-            if (seasonStr != null && episodeStr != null) {
-                // Append season:episode to the base ID if not already present
-                if (!itemId.contains(":$seasonStr:$episodeStr")) {
-                    itemId = "$itemId:$seasonStr:$episodeStr"
-                    android.util.Log.d("PlayerActivity", "Series episode detected, updated itemId to: $itemId")
+                    if (passedSeason == -1) passedSeason = match.groupValues[1].toIntOrNull() ?: 1
+                    if (passedEpisode == -1) passedEpisode = match.groupValues[2].toIntOrNull() ?: 1
                 }
             }
         }
 
         loadSubtitlePreferences()
-        gestureController = com.example.zubflix.player.PlayerGestureController(this, binding, { player }) { timeMs -> stringForTime(timeMs) }
+        audioEffectManager = com.example.zubflix.player.AudioEffectManager(this)
+        gestureController = com.example.zubflix.player.PlayerGestureController(this, binding, { player }, audioEffectManager) { timeMs -> stringForTime(timeMs) }
         statsManager = com.example.zubflix.player.PlayerStatsManager(this, binding) { player }
         setupExoPlayer()
         setupCustomControls()
@@ -303,7 +298,8 @@ class PlayerActivity : AppCompatActivity() {
                     val url = obj.optString("url")
                     if (url.isNotEmpty()) {
                         val lang = obj.optString("lang", "en")
-                        val label = obj.optString("label", if (lang.isNotEmpty()) lang else "Source Subtitle")
+                        val rawLabel = obj.optString("label", "")
+                        val label = formatSubtitleLabel(lang, rawLabel, "Source")
                         val mime = when {
                             url.contains(".vtt", ignoreCase = true) -> MimeTypes.TEXT_VTT
                             url.contains(".srt", ignoreCase = true) -> MimeTypes.APPLICATION_SUBRIP
@@ -326,7 +322,7 @@ class PlayerActivity : AppCompatActivity() {
                 else -> MimeTypes.APPLICATION_SUBRIP
             }
             if (!externalSubtitlesList.any { it.url == trimmed }) {
-                externalSubtitlesList.add(0, ExternalSubtitle(trimmed, "Source Subtitle", "en", mime))
+                externalSubtitlesList.add(0, ExternalSubtitle(trimmed, formatSubtitleLabel("en", "Source Subtitle", "Source"), "en", mime))
             }
         }
     }
@@ -530,11 +526,7 @@ class PlayerActivity : AppCompatActivity() {
                                                     sub.url.contains(".ssa", ignoreCase = true) || sub.url.contains(".ass", ignoreCase = true) -> androidx.media3.common.MimeTypes.TEXT_SSA
                                                     else -> androidx.media3.common.MimeTypes.APPLICATION_SUBRIP
                                                 }
-                                                val label = if (!sub.title.isNullOrEmpty()) {
-                                                    "${sub.lang} - ${sub.title} (${addon.name})"
-                                                } else {
-                                                    "${sub.lang} (${addon.name})"
-                                                }
+                                                val label = formatSubtitleLabel(sub.lang, sub.title, addon.name)
                                                 ExternalSubtitle(sub.url, label, sub.lang, mime)
                                             } else null
                                         } ?: emptyList()
@@ -580,10 +572,10 @@ class PlayerActivity : AppCompatActivity() {
             }
             val builder = request.newBuilder().url(reqUrl)
             
-            // Re-apply active stream headers if missing (ensures redirected requests retain custom headers)
+            // Re-apply active stream headers (forces Referer, Origin, and custom headers even across domain redirects)
             activeStreamHeaders.forEach { (k, v) ->
-                if (request.header(k) == null) {
-                    builder.addHeader(k, v)
+                if (k.equals("Referer", ignoreCase = true) || k.equals("Origin", ignoreCase = true) || request.header(k) == null) {
+                    builder.header(k, v)
                 }
             }
 
@@ -643,19 +635,8 @@ class PlayerActivity : AppCompatActivity() {
             )
         }
 
-        // Custom High-Performance LoadControl (Balanced memory-safe buffer preventing OOM on seek)
-        val loadControl = DefaultLoadControl.Builder()
-            .setAllocator(DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE))
-            .setBufferDurationsMs(
-                15000, // minBufferMs (15s min buffer)
-                30000, // maxBufferMs (30s max buffer)
-                2000,  // bufferForPlaybackMs (2s fast initial playback)
-                3500   // bufferForPlaybackAfterRebufferMs (3.5s smooth recovery without stutter)
-            )
-            .setTargetBufferBytes(32 * 1024 * 1024) // 32MB strict memory buffer ceiling to prevent OOM
-            .setPrioritizeTimeOverSizeThresholds(false)
-            .setBackBuffer(5000, false) // 5s back-buffer without keeping uncompressed frame blocks in RAM
-            .build()
+        // Dynamic Custom LoadControl based on user preference and hardware safety
+        val loadControl = com.example.zubflix.util.PlaybackSettings.createLoadControl(this)
 
         // Adaptive Track Selector with audio capability fallback
         val trackSelector = DefaultTrackSelector(this).apply {
@@ -665,7 +646,7 @@ class PlayerActivity : AppCompatActivity() {
                     .setViewportSizeToPhysicalDisplaySize(this@PlayerActivity, true)
                     .setAllowVideoMixedMimeTypeAdaptiveness(true)
                     .setAllowVideoNonSeamlessAdaptiveness(true)
-                    .setExceedRendererCapabilitiesIfNecessary(false)
+                    .setExceedRendererCapabilitiesIfNecessary(true)
                     .setTunnelingEnabled(false)
             )
         }
@@ -912,8 +893,17 @@ class PlayerActivity : AppCompatActivity() {
             
             val extractorsFactory = androidx.media3.extractor.DefaultExtractorsFactory()
                 .setConstantBitrateSeekingEnabled(true)
-            val mediaSource = DefaultMediaSourceFactory(customDataSourceFactory, extractorsFactory)
-                .createMediaSource(mediaItem)
+            val mediaSource = when {
+                currentUrl.contains(".mpd", ignoreCase = true) -> {
+                    DashMediaSource.Factory(httpDataSourceFactory).createMediaSource(mediaItem)
+                }
+                currentUrl.contains(".m3u8", ignoreCase = true) -> {
+                    HlsMediaSource.Factory(httpDataSourceFactory).createMediaSource(mediaItem)
+                }
+                else -> {
+                    DefaultMediaSourceFactory(customDataSourceFactory, extractorsFactory).createMediaSource(mediaItem)
+                }
+            }
 
             android.util.Log.d("PlayerActivity", "Setting MediaSource for URI: $currentUrl, Subtitles: ${subtitleConfigs.size}")
             com.example.zubflix.util.DebugLogger.d("PlayerActivity", "Playing: $currentUrl with ${subtitleConfigs.size} subtitles")
@@ -1102,12 +1092,23 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun setupPlayerListeners() {
         player?.addListener(object : Player.Listener {
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                super.onAudioSessionIdChanged(audioSessionId)
+                if (audioSessionId > 0) {
+                    audioEffectManager.attachToAudioSession(audioSessionId)
+                }
+            }
+
             override fun onPlaybackStateChanged(playbackState: Int) {
                 when (playbackState) {
                     Player.STATE_READY -> {
                         transientRetryCount = 0
                         binding.playerView.keepScreenOn = true
                         binding.loadingContainer.visibility = View.GONE
+                        val audioSessionId = player?.audioSessionId ?: 0
+                        if (audioSessionId > 0) {
+                            audioEffectManager.attachToAudioSession(audioSessionId)
+                        }
                     }
                     Player.STATE_BUFFERING -> {
                         binding.loadingContainer.visibility = View.VISIBLE
@@ -1308,7 +1309,8 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun restoreSavedProgressAndPlay() {
-        if (itemId.isEmpty()) {
+        val forceRestart = intent.getBooleanExtra("FORCE_RESTART", false)
+        if (itemId.isEmpty() || forceRestart) {
             player?.play()
             return
         }
@@ -1316,13 +1318,22 @@ class PlayerActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             val dao = AppDatabase.getDatabase(this@PlayerActivity).watchHistoryDao()
             val recent = dao.getRecentlyWatchedOnce(50)
-            val match = recent.find { it.itemId == itemId }
+            val match = recent.find { 
+                it.itemId == itemId || it.itemId.replace(Regex(":\\d+:\\d+$"), "") == itemId 
+            }
             
             withContext(Dispatchers.Main) {
                 if (match != null && match.currentPosition > 5000L) {
-                    val formattedTime = stringForTime(match.currentPosition)
-                    Toast.makeText(this@PlayerActivity, "Resuming from $formattedTime", Toast.LENGTH_SHORT).show()
-                    player?.seekTo(match.currentPosition)
+                    val isMatchingEpisode = if (isSeries && passedSeason != -1 && passedEpisode != -1) {
+                        match.lastSeasonNumber == passedSeason && match.lastEpisodeNumber == passedEpisode
+                    } else {
+                        true
+                    }
+                    if (isMatchingEpisode && match.watchPercentage < 95f) {
+                        val formattedTime = stringForTime(match.currentPosition)
+                        Toast.makeText(this@PlayerActivity, "Resuming from $formattedTime", Toast.LENGTH_SHORT).show()
+                        player?.seekTo(match.currentPosition)
+                    }
                 }
                 player?.play()
             }
@@ -1350,17 +1361,26 @@ class PlayerActivity : AppCompatActivity() {
         withContext(Dispatchers.IO) {
             val dao = AppDatabase.getDatabase(this@PlayerActivity).watchHistoryDao()
             val currentStreamUrl = if (currentUrlIndex in videoUrls.indices) videoUrls[currentUrlIndex] else null
+            val cleanShowTitle = intent.getStringExtra("ITEM_TITLE") ?: if (isSeries) {
+                videoTitle.replace(Regex("(?i)\\s*(?:S\\d+\\s*E\\d+|Season\\s*\\d+\\s*Episode\\s*\\d+).*"), "").trim().ifEmpty { videoTitle }
+            } else {
+                videoTitle
+            }
             val entity = WatchHistoryEntity(
                 itemId = itemId,
-                title = videoTitle,
+                title = cleanShowTitle,
                 imageUrl = imageUrl,
+                backdropUrl = backdropUrl,
                 isSeries = isSeries,
                 lastWatchedTimestamp = System.currentTimeMillis(),
                 sourceName = sourceName,
                 currentPosition = currentPos,
                 totalDuration = duration,
                 watchPercentage = percent,
-                streamUrl = currentStreamUrl
+                streamUrl = currentStreamUrl,
+                lastSeasonNumber = if (passedSeason != -1) passedSeason else null,
+                lastEpisodeNumber = if (passedEpisode != -1) passedEpisode else null,
+                lastEpisodeTitle = if (isSeries) videoTitle else null
             )
             dao.insertOrUpdate(entity)
         }
@@ -1397,6 +1417,8 @@ class PlayerActivity : AppCompatActivity() {
         showSidebar()
     }
 
+    private var nuvioStreamAdapter: NuvioStreamAdapter? = null
+
     private fun showSourceSidebar() {
         populateSourceSidebar()
         binding.sidebarScrim.visibility = View.VISIBLE
@@ -1410,8 +1432,8 @@ class PlayerActivity : AppCompatActivity() {
             .translationX(0f)
             .setDuration(300)
             .withEndAction {
-                if (binding.sourcesContainer.childCount > 0) {
-                    val focusTarget = binding.sourcesContainer.getChildAt(0)
+                if (binding.rvSourceStreams.childCount > 0) {
+                    val focusTarget = binding.rvSourceStreams.getChildAt(0)
                     com.example.zubflix.util.FocusHelper.safeRequestFocus(focusTarget)
                 } else if (binding.layoutSourceSidebarFilterTabs.childCount > 0) {
                     val tabTarget = binding.layoutSourceSidebarFilterTabs.getChildAt(0)
@@ -1578,13 +1600,216 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    private data class SidebarStreamItem(
+        val originalIndex: Int,
+        val category: String,
+        val parsed: ParsedStreamForSidebar,
+        val isSelected: Boolean
+    )
+
+    private inner class NuvioStreamAdapter(
+        private var items: List<SidebarStreamItem> = emptyList(),
+        private val onItemClick: (SidebarStreamItem) -> Unit
+    ) : androidx.recyclerview.widget.RecyclerView.Adapter<NuvioStreamAdapter.StreamViewHolder>() {
+
+        fun updateItems(newItems: List<SidebarStreamItem>) {
+            val diffResult = androidx.recyclerview.widget.DiffUtil.calculateDiff(object : androidx.recyclerview.widget.DiffUtil.Callback() {
+                override fun getOldListSize() = items.size
+                override fun getNewListSize() = newItems.size
+                override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+                    return items[oldItemPosition].originalIndex == newItems[newItemPosition].originalIndex
+                }
+                override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+                    return items[oldItemPosition] == newItems[newItemPosition]
+                }
+            })
+            items = newItems
+            diffResult.dispatchUpdatesTo(this)
+        }
+
+        override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): StreamViewHolder {
+            val view = android.view.LayoutInflater.from(parent.context).inflate(R.layout.item_nuvio_stream, parent, false)
+            return StreamViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: StreamViewHolder, position: Int) {
+            holder.bind(items[position], position)
+        }
+
+        override fun getItemCount(): Int = items.size
+
+        inner class StreamViewHolder(itemView: android.view.View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(itemView) {
+            private val tvStreamIndex: TextView = itemView.findViewById(R.id.tv_stream_index)
+            private val tvAddonProvider: TextView = itemView.findViewById(R.id.tv_addon_provider)
+            private val tvMoniker: TextView = itemView.findViewById(R.id.tv_moniker)
+            private val tvTorrentTitle: TextView = itemView.findViewById(R.id.tv_torrent_title)
+            private val tvBadgeResolution: TextView = itemView.findViewById(R.id.tv_badge_resolution)
+            private val tvBadgeSize: TextView = itemView.findViewById(R.id.tv_badge_size)
+            private val tvBadgeAudio: TextView = itemView.findViewById(R.id.tv_badge_audio)
+            private val tvBadgeQuality: TextView = itemView.findViewById(R.id.tv_badge_quality)
+            private val tvBadgeCodec: TextView = itemView.findViewById(R.id.tv_badge_codec)
+            private val viewAccentBar: View = itemView.findViewById(R.id.view_accent_bar)
+
+            init {
+                itemView.isFocusable = true
+                itemView.isClickable = true
+                itemView.setOnFocusChangeListener { view, hasFocus ->
+                    if (hasFocus) {
+                        view.scaleX = 1.02f
+                        view.scaleY = 1.02f
+                        view.translationZ = 4f
+                    } else {
+                        view.scaleX = 1.0f
+                        view.scaleY = 1.0f
+                        view.translationZ = 0f
+                    }
+                }
+            }
+
+            fun bind(item: SidebarStreamItem, pos: Int) {
+                val (originalIndex, cat, parsed, isSelected) = item
+
+                val indexStr = (pos + 1).toString().padStart(2, '0')
+                tvStreamIndex.text = indexStr
+
+                val isCurrentlyActive = isSelected || (pos == currentUrlIndex)
+                if (isCurrentlyActive) {
+                    tvStreamIndex.setBackgroundResource(R.drawable.bg_stream_index_pill_active)
+                    tvStreamIndex.setTextColor(Color.WHITE)
+                } else {
+                    tvStreamIndex.setBackgroundResource(R.drawable.bg_stream_index_pill)
+                    tvStreamIndex.setTextColor(Color.parseColor("#E0E0E0"))
+                }
+
+                val providerDisplayName = parsed.addonName.ifEmpty { cat.ifEmpty { sourceName.ifEmpty { "Stream" } } }
+                tvAddonProvider.text = providerDisplayName
+
+                val addonStyle = com.example.zubflix.util.StreamUIUtils.getAddonStyle(providerDisplayName)
+                tvAddonProvider.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor(addonStyle.bgHex))
+                tvAddonProvider.setTextColor(android.graphics.Color.parseColor(addonStyle.textHex))
+                viewAccentBar.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor(addonStyle.bgHex))
+
+                if (parsed.moniker.isNotEmpty()) {
+                    tvMoniker.text = parsed.moniker
+                    tvMoniker.visibility = View.VISIBLE
+                } else {
+                    tvMoniker.visibility = View.GONE
+                }
+
+                val cleanTitle = com.example.zubflix.util.StreamUIUtils.sanitizeTitle(parsed.torrentName, parsed.attributes)
+
+                if (cleanTitle.contains("\n")) {
+                    val parts = cleanTitle.split("\n", limit = 2)
+                    val spannable = android.text.SpannableStringBuilder()
+                    spannable.append(parts[0])
+                    spannable.append("\n")
+                    val startIdx = spannable.length
+                    spannable.append(parts[1])
+                    spannable.setSpan(
+                        android.text.style.AbsoluteSizeSpan(12, true),
+                        startIdx,
+                        spannable.length,
+                        android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                    spannable.setSpan(
+                        android.text.style.ForegroundColorSpan(if (isSelected) Color.parseColor("#DDDDDD") else Color.parseColor("#AAAAAA")),
+                        startIdx,
+                        spannable.length,
+                        android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                    tvTorrentTitle.text = spannable
+                } else {
+                    tvTorrentTitle.text = cleanTitle
+                }
+
+                if (isSelected) {
+                    itemView.setBackgroundResource(R.drawable.bg_stream_card_playing)
+                    tvTorrentTitle.setTextColor(Color.WHITE)
+                    tvTorrentTitle.setTypeface(null, Typeface.BOLD)
+
+                    tvMoniker.text = if (parsed.moniker.isNotEmpty()) "${parsed.moniker} [PLAYING]" else "[PLAYING]"
+                    tvMoniker.setTextColor(Color.parseColor("#FF4D4D"))
+                    tvMoniker.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#4D0A0A")))
+                    tvMoniker.visibility = View.VISIBLE
+                } else {
+                    itemView.setBackgroundResource(R.drawable.bg_stream_card_selector)
+                    tvTorrentTitle.setTextColor(Color.parseColor("#EEEEEE"))
+                    tvTorrentTitle.setTypeface(null, Typeface.NORMAL)
+                    tvMoniker.setTextColor(Color.parseColor("#00D2FF"))
+                    tvMoniker.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#05203C")))
+                }
+
+                tvBadgeResolution.visibility = View.GONE
+                tvBadgeSize.visibility = View.GONE
+                tvBadgeAudio.visibility = View.GONE
+                tvBadgeQuality.visibility = View.GONE
+                tvBadgeCodec.visibility = View.GONE
+
+                parsed.attributes.forEach { attr ->
+                    val lowerAttr = attr.lowercase()
+                    when {
+                        lowerAttr.matches(Regex(".*(4k|1080p|720p|480p|2160p).*")) -> {
+                            tvBadgeResolution.text = attr
+                            tvBadgeResolution.visibility = View.VISIBLE
+                        }
+                        lowerAttr.matches(Regex(".*(gb|mb).*")) -> {
+                            tvBadgeSize.text = attr
+                            tvBadgeSize.visibility = View.VISIBLE
+                        }
+                        lowerAttr.matches(Regex(".*(aac|ac3|dts|dolby|5\\.1|7\\.1).*")) -> {
+                            tvBadgeAudio.text = attr
+                            tvBadgeAudio.visibility = View.VISIBLE
+                        }
+                        lowerAttr.matches(Regex(".*(hdr|sdr|bluray|web-dl|webrip|cam).*")) -> {
+                            tvBadgeQuality.text = attr
+                            tvBadgeQuality.visibility = View.VISIBLE
+                        }
+                        lowerAttr.matches(Regex(".*(hevc|x265|h264|x264|av1).*")) -> {
+                            tvBadgeCodec.text = attr
+                            tvBadgeCodec.visibility = View.VISIBLE
+                        }
+                        else -> {
+                            if (tvBadgeQuality.visibility == View.GONE) {
+                                tvBadgeQuality.text = attr
+                                tvBadgeQuality.visibility = View.VISIBLE
+                            } else if (tvBadgeAudio.visibility == View.GONE) {
+                                tvBadgeAudio.text = attr
+                                tvBadgeAudio.visibility = View.VISIBLE
+                            }
+                        }
+                    }
+                }
+
+                itemView.setOnClickListener {
+                    onItemClick(item)
+                }
+            }
+        }
+    }
+
     private fun populateSourceSidebar() {
-        binding.sourcesContainer.removeAllViews()
         binding.layoutSourceSidebarFilterTabs.removeAllViews()
+
+        if (binding.rvSourceStreams.layoutManager == null) {
+            binding.rvSourceStreams.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
+        }
+
+        if (nuvioStreamAdapter == null) {
+            nuvioStreamAdapter = NuvioStreamAdapter { item ->
+                if (item.originalIndex != currentUrlIndex) {
+                    currentUrlIndex = item.originalIndex
+                    hideSourceSidebar()
+                    prepareMediaAndPlay()
+                    Toast.makeText(this, "Switched to ${item.parsed.torrentName}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            binding.rvSourceStreams.adapter = nuvioStreamAdapter
+        }
 
         val totalStreams = videoUrls.size
         if (totalStreams == 0) {
             binding.scrollSourceSidebarFilterTabs.visibility = View.GONE
+            nuvioStreamAdapter?.updateItems(emptyList())
             return
         }
 
@@ -1613,11 +1838,22 @@ class PlayerActivity : AppCompatActivity() {
         tabCategories.add(Pair("All", totalStreams))
 
         // Preferred order: Quality (1080p, 720p, 4K, 480p), BDIX, Penguplay, Local Scrapers
+        val visibleQualities = com.example.zubflix.util.PlaybackSettings.getVisibleQualityChips(this)
         listOf("1080p", "720p", "4K", "480p").forEach { q ->
-            val count = qualityMap[q] ?: 0
-            if (count > 0) {
-                tabCategories.add(Pair(q, count))
+            if (visibleQualities.contains(q)) {
+                val count = qualityMap[q] ?: 0
+                if (count > 0) {
+                    tabCategories.add(Pair(q, count))
+                }
             }
+        }
+
+        val movieboxCount = parsedList.count {
+            val fullText = "${it.third.rawName} ${it.third.addonName} ${it.third.moniker}".lowercase()
+            it.second == "MovieBox" || fullText.contains("moviebox")
+        }
+        if (movieboxCount > 0) {
+            tabCategories.add(Pair("MovieBox", movieboxCount))
         }
 
         val bdixCount = parsedList.count { isBdixStream(it.third) }
@@ -1673,6 +1909,8 @@ class PlayerActivity : AppCompatActivity() {
                     lp.setMargins(0, 0, (8 * resources.displayMetrics.density).toInt(), 0)
                     layoutParams = lp
 
+                    tag = cat
+
                     val isSelected = (cat == selectedSourceSidebarCategory)
                     if (isSelected) {
                         setTextColor(Color.WHITE)
@@ -1686,13 +1924,23 @@ class PlayerActivity : AppCompatActivity() {
                     isClickable = true
 
                     setOnClickListener {
-                        selectedSourceSidebarCategory = cat
-                        populateSourceSidebar()
+                        if (selectedSourceSidebarCategory != cat) {
+                            selectedSourceSidebarCategory = cat
+                            renderSidebarSourceStreams(parsedList)
+                        }
                     }
 
                     setOnFocusChangeListener { v, hasFocus ->
                         if (hasFocus) {
                             v.animate().scaleX(1.05f).scaleY(1.05f).setDuration(150).start()
+                            if (selectedSourceSidebarCategory != cat) {
+                                selectedSourceSidebarCategory = cat
+                                renderSidebarSourceStreams(parsedList)
+                            }
+                            binding.scrollSourceSidebarFilterTabs.post {
+                                val scrollTo = v.left - (binding.scrollSourceSidebarFilterTabs.width / 2) + (v.width / 2)
+                                binding.scrollSourceSidebarFilterTabs.smoothScrollTo(scrollTo.coerceAtLeast(0), 0)
+                            }
                         } else {
                             v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                         }
@@ -1704,11 +1952,32 @@ class PlayerActivity : AppCompatActivity() {
             binding.scrollSourceSidebarFilterTabs.visibility = View.GONE
         }
 
-        // 3. Filter list by selected category or quality or BDIX or Penguplay or Local Scrapers
+        renderSidebarSourceStreams(parsedList)
+    }
+
+    private fun renderSidebarSourceStreams(parsedList: List<Triple<Int, String, ParsedStreamForSidebar>>) {
+        // 1. Update chip selection highlight in tab row without re-creating tab views
+        for (i in 0 until binding.layoutSourceSidebarFilterTabs.childCount) {
+            val child = binding.layoutSourceSidebarFilterTabs.getChildAt(i) as? TextView ?: continue
+            val childCat = child.tag as? String ?: continue
+            if (childCat == selectedSourceSidebarCategory) {
+                child.setTextColor(Color.WHITE)
+                child.setBackgroundResource(R.drawable.bg_season_chip_selected)
+            } else {
+                child.setTextColor(Color.parseColor("#AAAAAA"))
+                child.setBackgroundResource(R.drawable.bg_season_chip_unselected)
+            }
+        }
+
+        // 2. Filter stream list
         val filteredList = when (selectedSourceSidebarCategory) {
             "All" -> parsedList
             "BDIX" -> parsedList.filter { isBdixStream(it.third) }
             "4K", "1080p", "720p", "480p" -> parsedList.filter { getQualityTagForSidebar(it.third) == selectedSourceSidebarCategory }
+            "MovieBox" -> parsedList.filter {
+                val fullText = "${it.third.rawName} ${it.third.addonName} ${it.third.moniker}".lowercase()
+                it.second == "MovieBox" || fullText.contains("moviebox")
+            }
             "Penguplay" -> parsedList.filter {
                 val fullText = "${it.third.rawName} ${it.third.addonName} ${it.third.moniker}".lowercase()
                 fullText.contains("pengu") || fullText.contains("stremio") || fullText.contains("torrentio") || fullText.contains("addon")
@@ -1720,142 +1989,16 @@ class PlayerActivity : AppCompatActivity() {
             else -> parsedList.filter { it.second == selectedSourceSidebarCategory }
         }
 
-        val inflater = LayoutInflater.from(this)
-
-        for ((originalIndex, cat, parsed) in filteredList) {
-            val isSelected = (originalIndex == currentUrlIndex)
-
-            val itemView = inflater.inflate(R.layout.item_nuvio_stream, binding.sourcesContainer, false)
-
-            val tvAddonProvider = itemView.findViewById<TextView>(R.id.tv_addon_provider)
-            val tvMoniker = itemView.findViewById<TextView>(R.id.tv_moniker)
-            val tvTorrentTitle = itemView.findViewById<TextView>(R.id.tv_torrent_title)
-            val tvBadgeResolution = itemView.findViewById<TextView>(R.id.tv_badge_resolution)
-            val tvBadgeSize = itemView.findViewById<TextView>(R.id.tv_badge_size)
-            val tvBadgeAudio = itemView.findViewById<TextView>(R.id.tv_badge_audio)
-            val tvBadgeQuality = itemView.findViewById<TextView>(R.id.tv_badge_quality)
-            val tvBadgeCodec = itemView.findViewById<TextView>(R.id.tv_badge_codec)
-
-            val providerDisplayName = parsed.addonName.ifEmpty { cat.ifEmpty { sourceName.ifEmpty { "Stream" } } }
-            tvAddonProvider.text = providerDisplayName
-
-            if (parsed.moniker.isNotEmpty()) {
-                tvMoniker.text = parsed.moniker
-                tvMoniker.visibility = View.VISIBLE
-            } else {
-                tvMoniker.visibility = View.GONE
-            }
-
-            if (parsed.torrentName.contains("\n")) {
-                val parts = parsed.torrentName.split("\n", limit = 2)
-                val spannable = android.text.SpannableStringBuilder()
-                spannable.append(parts[0])
-                spannable.append("\n")
-                val startIdx = spannable.length
-                spannable.append(parts[1])
-                spannable.setSpan(
-                    android.text.style.AbsoluteSizeSpan(12, true),
-                    startIdx,
-                    spannable.length,
-                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-                spannable.setSpan(
-                    android.text.style.ForegroundColorSpan(if (isSelected) Color.parseColor("#DDDDDD") else Color.parseColor("#AAAAAA")),
-                    startIdx,
-                    spannable.length,
-                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-                tvTorrentTitle.text = spannable
-            } else {
-                tvTorrentTitle.text = parsed.torrentName
-            }
-
-            // Styling for currently playing stream vs available streams
-            if (isSelected) {
-                itemView.setBackgroundResource(R.drawable.bg_stream_card_playing)
-                tvTorrentTitle.setTextColor(Color.WHITE)
-                tvTorrentTitle.setTypeface(null, Typeface.BOLD)
-
-                tvMoniker.text = if (parsed.moniker.isNotEmpty()) "${parsed.moniker} [PLAYING]" else "[PLAYING]"
-                tvMoniker.setTextColor(Color.parseColor("#FF4D4D"))
-                tvMoniker.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#4D0A0A")))
-                tvMoniker.visibility = View.VISIBLE
-            } else {
-                itemView.setBackgroundResource(R.drawable.bg_stream_card_selector)
-                tvTorrentTitle.setTextColor(Color.parseColor("#EEEEEE"))
-                tvTorrentTitle.setTypeface(null, Typeface.NORMAL)
-                tvMoniker.setTextColor(Color.parseColor("#00D2FF"))
-                tvMoniker.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#05203C")))
-            }
-
-            // Reset and configure badges
-            tvBadgeResolution.visibility = View.GONE
-            tvBadgeSize.visibility = View.GONE
-            tvBadgeAudio.visibility = View.GONE
-            tvBadgeQuality.visibility = View.GONE
-            tvBadgeCodec.visibility = View.GONE
-
-            parsed.attributes.forEach { attr ->
-                val lowerAttr = attr.lowercase()
-                when {
-                    lowerAttr.matches(Regex(".*(4k|1080p|720p|480p|2160p).*")) -> {
-                        tvBadgeResolution.text = attr
-                        tvBadgeResolution.visibility = View.VISIBLE
-                    }
-                    lowerAttr.matches(Regex(".*(gb|mb).*")) -> {
-                        tvBadgeSize.text = attr
-                        tvBadgeSize.visibility = View.VISIBLE
-                    }
-                    lowerAttr.matches(Regex(".*(aac|ac3|dts|dolby|5\\.1|7\\.1).*")) -> {
-                        tvBadgeAudio.text = attr
-                        tvBadgeAudio.visibility = View.VISIBLE
-                    }
-                    lowerAttr.matches(Regex(".*(hdr|sdr|bluray|web-dl|webrip|cam).*")) -> {
-                        tvBadgeQuality.text = attr
-                        tvBadgeQuality.visibility = View.VISIBLE
-                    }
-                    lowerAttr.matches(Regex(".*(hevc|x265|h264|x264|av1).*")) -> {
-                        tvBadgeCodec.text = attr
-                        tvBadgeCodec.visibility = View.VISIBLE
-                    }
-                    else -> {
-                        if (tvBadgeQuality.visibility == View.GONE) {
-                            tvBadgeQuality.text = attr
-                            tvBadgeQuality.visibility = View.VISIBLE
-                        } else if (tvBadgeAudio.visibility == View.GONE) {
-                            tvBadgeAudio.text = attr
-                            tvBadgeAudio.visibility = View.VISIBLE
-                        }
-                    }
-                }
-            }
-
-            itemView.setOnClickListener {
-                if (!isSelected) {
-                    currentUrlIndex = originalIndex
-                    hideSourceSidebar()
-                    prepareMediaAndPlay()
-                    Toast.makeText(this, "Switched to ${parsed.torrentName}", Toast.LENGTH_SHORT).show()
-                }
-            }
-
-            itemView.isFocusable = true
-            itemView.isClickable = true
-
-            itemView.setOnFocusChangeListener { view, hasFocus ->
-                if (hasFocus) {
-                    view.scaleX = 1.02f
-                    view.scaleY = 1.02f
-                    view.translationZ = 4f
-                } else {
-                    view.scaleX = 1.0f
-                    view.scaleY = 1.0f
-                    view.translationZ = 0f
-                }
-            }
-
-            binding.sourcesContainer.addView(itemView)
+        val adapterItems = filteredList.map { (originalIndex, cat, parsed) ->
+            SidebarStreamItem(
+                originalIndex = originalIndex,
+                category = cat,
+                parsed = parsed,
+                isSelected = (originalIndex == currentUrlIndex)
+            )
         }
+
+        nuvioStreamAdapter?.updateItems(adapterItems)
     }
 
     private fun showSidebar() {
@@ -1934,15 +2077,7 @@ class PlayerActivity : AppCompatActivity() {
         // Populate Audio
         for (track in audioList) {
             val format = track.first.getTrackFormat(track.second)
-            val langDisplay = format.language?.let { langCode ->
-                try {
-                    val loc = Locale(langCode)
-                    val disp = loc.displayLanguage
-                    if (disp.isNotEmpty()) disp else langCode
-                } catch (e: Exception) {
-                    langCode
-                }
-            }
+            val langDisplay = formatLanguageDisplayName(format.language)
             val mimeType = format.sampleMimeType?.lowercase(Locale.ROOT)
             val codecInfo = when {
                 mimeType == "audio/ac3" -> "AC-3 5.1"
@@ -2010,7 +2145,7 @@ class PlayerActivity : AppCompatActivity() {
         // Embedded video container tracks
         for (track in subtitleList) {
             val format = track.first.getTrackFormat(track.second)
-            val label = format.label ?: format.language?.let { Locale(it).displayLanguage } ?: "Container Subtitle #${subtitleList.indexOf(track) + 1}"
+            val label = formatSubtitleLabel(format.language ?: "en", format.label, "Container #${subtitleList.indexOf(track) + 1}")
             val isSelected = !isSubDisabled && track.first.isTrackSelected(track.second) && selectedExternalSubUrl == null
 
             val rowView = createTrackRow(label, isSelected) {
@@ -2083,14 +2218,103 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    private fun formatLanguageDisplayName(langCode: String?): String {
+        if (langCode.isNullOrBlank()) return "Unknown"
+        val code = langCode.trim().lowercase(java.util.Locale.ROOT)
+        
+        val knownMap = mapOf(
+            "en" to "English", "eng" to "English",
+            "es" to "Spanish", "spa" to "Spanish",
+            "fr" to "French", "fre" to "French", "fra" to "French",
+            "de" to "German", "ger" to "German", "deu" to "German",
+            "it" to "Italian", "ita" to "Italian",
+            "pt" to "Portuguese", "por" to "Portuguese", "pt-br" to "Portuguese (BR)",
+            "ru" to "Russian", "rus" to "Russian",
+            "zh" to "Chinese", "zho" to "Chinese", "chi" to "Chinese",
+            "ja" to "Japanese", "jpn" to "Japanese",
+            "ko" to "Korean", "kor" to "Korean",
+            "hi" to "Hindi", "hin" to "Hindi",
+            "ar" to "Arabic", "ara" to "Arabic",
+            "bn" to "Bengali", "ben" to "Bengali",
+            "id" to "Indonesian", "ind" to "Indonesian",
+            "tr" to "Turkish", "tur" to "Turkish",
+            "vi" to "Vietnamese", "vie" to "Vietnamese",
+            "pl" to "Polish", "pol" to "Polish",
+            "nl" to "Dutch", "dut" to "Dutch", "nld" to "Dutch",
+            "uk" to "Ukrainian", "ukr" to "Ukrainian",
+            "sv" to "Swedish", "swe" to "Swedish",
+            "no" to "Norwegian", "nor" to "Norwegian",
+            "da" to "Danish", "dan" to "Danish",
+            "fi" to "Finnish", "fin" to "Finnish",
+            "cs" to "Czech", "ces" to "Czech",
+            "hu" to "Hungarian", "hun" to "Hungarian",
+            "ro" to "Romanian", "ron" to "Romanian",
+            "el" to "Greek", "ell" to "Greek",
+            "he" to "Hebrew", "heb" to "Hebrew",
+            "th" to "Thai", "tha" to "Thai",
+            "ms" to "Malay", "msa" to "Malay", "may" to "Malay",
+            "tl" to "Tagalog", "fil" to "Filipino",
+            "fa" to "Persian", "per" to "Persian", "fas" to "Persian"
+        )
+
+        knownMap[code]?.let { return it }
+
+        return try {
+            val loc = java.util.Locale(code)
+            val disp = loc.displayLanguage
+            if (disp.isNotBlank() && !disp.equals(code, ignoreCase = true)) {
+                disp.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
+            } else {
+                code.uppercase(java.util.Locale.ROOT)
+            }
+        } catch (e: Exception) {
+            code.uppercase(java.util.Locale.ROOT)
+        }
+    }
+
+    private fun formatSubtitleLabel(lang: String?, title: String?, provider: String?): String {
+        val langName = formatLanguageDisplayName(lang)
+
+        var cleanProvider = provider?.trim() ?: ""
+        if (cleanProvider.isNotEmpty()) {
+            cleanProvider = cleanProvider
+                .replace(Regex("(?i)\\bv\\d+(\\.\\d+)?\\b"), "")
+                .replace(Regex("(?i)\\bapi\\b"), "")
+                .replace(Regex("(?i)\\bfor\\b"), "")
+                .replace(Regex("(?i)third party provider"), "")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+        }
+
+        var cleanTitle = title?.trim() ?: ""
+        if (cleanTitle.equals(lang, ignoreCase = true) ||
+            cleanTitle.equals(langName, ignoreCase = true) ||
+            cleanTitle.equals(provider, ignoreCase = true) ||
+            cleanTitle.equals("Source Subtitle", ignoreCase = true)
+        ) {
+            cleanTitle = ""
+        }
+
+        val providerBadge = if (cleanProvider.isNotBlank()) " ($cleanProvider)" else ""
+
+        return if (cleanTitle.isNotBlank()) {
+            "$langName - $cleanTitle$providerBadge"
+        } else {
+            "$langName$providerBadge"
+        }
+    }
+
     private fun createTrackRow(label: String, isSelected: Boolean, onClick: () -> Unit): View {
         val textView = TextView(this).apply {
             layoutParams = android.widget.LinearLayout.LayoutParams(
-                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                0,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
             )
             text = label
-            textSize = 14f
+            textSize = 13.5f
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
             if (isSelected) {
                 setTextColor(Color.parseColor("#E50914"))
                 setTypeface(null, Typeface.BOLD)
@@ -2105,13 +2329,13 @@ class PlayerActivity : AppCompatActivity() {
                 android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
                 android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                val margin = (4 * resources.displayMetrics.density).toInt()
+                val margin = (2 * resources.displayMetrics.density).toInt()
                 setMargins(margin, margin, margin, margin)
             }
             orientation = android.widget.LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            val verticalPadding = (12 * resources.displayMetrics.density).toInt()
-            val horizontalPadding = (16 * resources.displayMetrics.density).toInt()
+            val verticalPadding = (10 * resources.displayMetrics.density).toInt()
+            val horizontalPadding = (12 * resources.displayMetrics.density).toInt()
             setPadding(horizontalPadding, verticalPadding, horizontalPadding, verticalPadding)
 
             isClickable = true
@@ -2147,10 +2371,10 @@ class PlayerActivity : AppCompatActivity() {
 
         val checkIcon = android.widget.ImageView(this).apply {
             layoutParams = android.widget.LinearLayout.LayoutParams(
-                (20 * resources.displayMetrics.density).toInt(),
-                (20 * resources.displayMetrics.density).toInt()
+                (18 * resources.displayMetrics.density).toInt(),
+                (18 * resources.displayMetrics.density).toInt()
             ).apply {
-                marginEnd = (12 * resources.displayMetrics.density).toInt()
+                marginEnd = (10 * resources.displayMetrics.density).toInt()
             }
             setImageResource(R.drawable.ic_check)
             if (isSelected) {
@@ -2224,21 +2448,52 @@ class PlayerActivity : AppCompatActivity() {
                 }
             }
         }
-        if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT || keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT) {
+        val isSeekKey = keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT || 
+                        keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT ||
+                        keyCode == android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD ||
+                        keyCode == android.view.KeyEvent.KEYCODE_MEDIA_REWIND
+
+        if (isSeekKey) {
             if (binding.sidebarContainer.visibility != View.VISIBLE && binding.sourceSidebarContainer.visibility != View.VISIBLE) {
                 val isControlsVisible = binding.playerView.isControllerFullyVisible
                 val focusedView = currentFocus
                 val progressId = resources.getIdentifier("exo_progress", "id", packageName)
                 val focusedId = focusedView?.id ?: 0
 
-                // Seek ONLY if controls are hidden, or if no view has focus, or if the focused view is the progress bar (seek bar)
-                val shouldSeek = !isControlsVisible || focusedView == null || focusedId == progressId
+                val isLeft = keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT || keyCode == android.view.KeyEvent.KEYCODE_MEDIA_REWIND
 
+                // If controls are hidden, execute clean quick seek without opening full OSD
+                if (!isControlsVisible) {
+                    if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+                        val now = System.currentTimeMillis()
+                        val seekStep = if (isLeft) -10000L else 10000L
+
+                        if (now - tvSeekLastTimeMs < 800 && ((isLeft && tvSeekAccumulatorMs < 0) || (!isLeft && tvSeekAccumulatorMs > 0))) {
+                            tvSeekAccumulatorMs += seekStep
+                        } else {
+                            tvSeekAccumulatorMs = seekStep
+                        }
+                        tvSeekLastTimeMs = now
+
+                        player?.let { p ->
+                            val targetPos = (p.currentPosition + seekStep).coerceIn(0, p.duration)
+                            p.seekTo(targetPos)
+                        }
+
+                        val absSec = Math.abs(tvSeekAccumulatorMs / 1000)
+                        val label = if (tvSeekAccumulatorMs < 0) "« -${absSec}s" else "+${absSec}s »"
+                        showDoubleTapIndicator(label)
+                    }
+                    return true
+                }
+
+                // If controls ARE visible, perform seek if no focus or focused on progress bar
+                val shouldSeek = focusedView == null || focusedId == progressId
                 if (shouldSeek) {
                     if (event.action == android.view.KeyEvent.ACTION_DOWN) {
-                        val increment = 10000L // 10s seek
+                        val increment = 10000L
                         player?.let { p ->
-                            if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT) {
+                            if (isLeft) {
                                 p.seekTo((p.currentPosition - increment).coerceAtLeast(0))
                                 showDoubleTapIndicator("-10s")
                             } else {
@@ -2246,8 +2501,6 @@ class PlayerActivity : AppCompatActivity() {
                                 showDoubleTapIndicator("+10s")
                             }
                         }
-                        binding.playerView.showController()
-                        
                         if (progressId != 0) {
                             binding.playerView.findViewById<View>(progressId)?.requestFocus()
                         }
@@ -2388,6 +2641,7 @@ class PlayerActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         statsManager.stopStatsPoller()
+        audioEffectManager.release()
         kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
             try {
                 AppDatabase.getDatabase(applicationContext).watchHistoryDao().trimExcessHistory()
@@ -2477,7 +2731,12 @@ private class LazySubtitleDataSource(
         if (stream != null) {
             return stream.read(buffer, offset, length)
         }
-        return activeStream?.read(buffer, offset, length) ?: -1
+        return try {
+            activeStream?.read(buffer, offset, length) ?: -1
+        } catch (e: Exception) {
+            android.util.Log.w("LazySubtitleDS", "Error reading subtitle stream from network (${e.message}). Returning EOF to protect playback.")
+            -1
+        }
     }
 
     override fun getUri(): Uri? {

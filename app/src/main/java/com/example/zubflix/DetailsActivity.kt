@@ -21,6 +21,7 @@ import com.example.zubflix.adapter.EpisodeAdapter
 import com.example.zubflix.adapter.SeasonAdapter
 import com.example.zubflix.database.AppDatabase
 import com.example.zubflix.database.MyListEntity
+import com.example.zubflix.database.WatchHistoryEntity
 import com.example.zubflix.model.StreamingEpisode
 import com.example.zubflix.model.StreamingItem
 import com.example.zubflix.model.StreamingSeason
@@ -39,6 +40,9 @@ class DetailsActivity : AppCompatActivity() {
     private var sourceName: String = ""
     private var currentItem: StreamingItem? = null
     private var isInMyList = false
+    private var watchHistoryEntity: WatchHistoryEntity? = null
+    private var targetSeasonNumber: Int = 1
+    private var targetEpisodeNumber: Int = 1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,7 +60,8 @@ class DetailsActivity : AppCompatActivity() {
             windowInsets
         }
 
-        itemId = intent.getStringExtra("ITEM_ID") ?: ""
+        val rawItemId = intent.getStringExtra("ITEM_ID") ?: ""
+        itemId = cleanSeriesItemId(rawItemId)
         sourceName = intent.getStringExtra("SOURCE_NAME") ?: ""
 
         // Instant rendering: check for pre-filled item metadata passed in Intent
@@ -85,15 +90,89 @@ class DetailsActivity : AppCompatActivity() {
         loadDetails()
     }
 
+    private fun cleanSeriesItemId(rawId: String): String {
+        var cleaned = rawId.trim()
+        if (cleaned.startsWith("{") && cleaned.endsWith("}")) {
+            try {
+                val obj = org.json.JSONObject(cleaned)
+                return obj.optString("movieId", cleaned)
+            } catch (_: Exception) {}
+        }
+        return cleaned.replace(Regex(":\\d+:\\d+$"), "")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        checkWatchHistoryAndUpdateCta()
+    }
+
+    private fun checkWatchHistoryAndUpdateCta() {
+        if (itemId.isEmpty()) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val dao = AppDatabase.getDatabase(this@DetailsActivity).watchHistoryDao()
+            var history = dao.getWatchHistoryById(itemId)
+            if (history == null) {
+                val recent = dao.getRecentlyWatchedOnce(50)
+                history = recent.find { 
+                    it.itemId == itemId || cleanSeriesItemId(it.itemId) == itemId 
+                }
+            }
+            watchHistoryEntity = history
+
+            withContext(Dispatchers.Main) {
+                updatePrimaryCtaButton()
+            }
+        }
+    }
+
+    private fun updatePrimaryCtaButton() {
+        val item = currentItem ?: return
+        val history = watchHistoryEntity
+
+        if (item.isSeries) {
+            if (history != null && history.lastSeasonNumber != null && history.lastEpisodeNumber != null) {
+                val s = history.lastSeasonNumber
+                val e = history.lastEpisodeNumber
+                val percent = history.watchPercentage
+
+                if (percent > 90f) {
+                    targetSeasonNumber = s
+                    targetEpisodeNumber = e + 1
+                    binding.tvPlayText.text = "PLAY S${targetSeasonNumber}:E${targetEpisodeNumber}"
+                } else {
+                    targetSeasonNumber = s
+                    targetEpisodeNumber = e
+                    binding.tvPlayText.text = "RESUME S${s}:E${e}"
+                }
+            } else {
+                targetSeasonNumber = 1
+                targetEpisodeNumber = 1
+                binding.tvPlayText.text = "PLAY S1:E1"
+            }
+        } else {
+            if (history != null) {
+                val percent = history.watchPercentage
+                val currentPos = history.currentPosition
+                if (percent > 90f) {
+                    binding.tvPlayText.text = "WATCH AGAIN"
+                } else if (percent > 1f || currentPos > 10000L) {
+                    binding.tvPlayText.text = "RESUME"
+                } else {
+                    binding.tvPlayText.text = "WATCH MOVIE"
+                }
+            } else {
+                binding.tvPlayText.text = "WATCH MOVIE"
+            }
+        }
+    }
+
     private fun setupListeners() {
         binding.btnPlay.setOnClickListener {
             currentItem?.let { item ->
-                if (item.isSeries && !item.seasons.isNullOrEmpty()) {
-                    // Smoothly scroll down to episodes list
-                    binding.scrollView.post {
-                        binding.scrollView.smoothScrollTo(0, binding.layoutEpisodes.top)
-                    }
+                if (item.isSeries) {
+                    playTargetEpisode(targetSeasonNumber, targetEpisodeNumber)
                 } else {
+                    val isWatchAgain = binding.tvPlayText.text == "WATCH AGAIN"
                     val streamUrl = item.streamUrl
                     if (!streamUrl.isNullOrEmpty()) {
                         val imdbIdMatch = Regex("tt\\d+").find(streamUrl)
@@ -117,7 +196,7 @@ class DetailsActivity : AppCompatActivity() {
                             if (sources != null && sources.size > 1) {
                                 showSourceSelectorBottomSheet(item.title, sources, imdbId = extractedImdbId)
                             } else {
-                                playVideo(item.title, streamUrl, listOf(streamUrl), imdbId = extractedImdbId)
+                                playVideo(item.title, streamUrl, listOf(streamUrl), imdbId = extractedImdbId, forceRestart = isWatchAgain)
                             }
                         }
                     } else {
@@ -165,24 +244,33 @@ class DetailsActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
-                val source = SourceManager.getSourceByName(sourceName) ?: return@launch
+                val isSeriesExtra = intent.getBooleanExtra("ITEM_IS_SERIES", false) || currentItem?.isSeries == true
+                var source = SourceManager.getSourceByName(sourceName)
+                if (source == null) {
+                    source = SourceManager.getSelectedSource(this@DetailsActivity)
+                }
                 val details = withContext(Dispatchers.IO) {
-                    var item = source.getDetails(itemId)
+                    var item = source?.getDetails(itemId)
                     if (item == null) {
-                        val cleanId = if (itemId.trim().startsWith("{")) {
-                            try {
-                                val obj = org.json.JSONObject(itemId)
-                                obj.optString("movieId", itemId)
-                            } catch (_: Exception) { itemId }
-                        } else if (itemId.contains(":")) {
-                            itemId.substringBefore(":")
-                        } else if (itemId.contains("/")) {
-                            itemId.substringAfterLast("/")
-                        } else {
-                            itemId
-                        }
+                        val cleanId = cleanSeriesItemId(itemId)
                         if (cleanId != itemId) {
-                            item = source.getDetails(cleanId)
+                            item = source?.getDetails(cleanId)
+                        }
+                    }
+                    if ((item == null || (isSeriesExtra && item.seasons.isNullOrEmpty())) && (itemId.startsWith("tmdb") || sourceName.contains("Nuvio", ignoreCase = true))) {
+                        try {
+                            val nuvio = com.example.zubflix.sources.NuvioSource(this@DetailsActivity)
+                            val nuvioItem = nuvio.getDetails(itemId)
+                            if (nuvioItem != null) {
+                                item = if (item != null) {
+                                    item.copy(
+                                        seasons = nuvioItem.seasons?.takeIf { it.isNotEmpty() } ?: item.seasons,
+                                        isSeries = item.isSeries || nuvioItem.isSeries
+                                    )
+                                } else nuvioItem
+                            }
+                        } catch (e: Exception) {
+                            Log.e("DetailsActivity", "Nuvio fallback error", e)
                         }
                     }
                     item
@@ -190,18 +278,32 @@ class DetailsActivity : AppCompatActivity() {
 
                 if (details != null) {
                     val prefill = currentItem
+                    val resolvedTitle = if (details.title.isNotBlank() && !details.title.startsWith("tmdb_") && !details.title.startsWith("tmdb:")) {
+                        details.title
+                    } else {
+                        prefill?.title?.takeIf { it.isNotBlank() } ?: details.title
+                    }
+                    val isSeriesVal = details.isSeries || (prefill?.isSeries == true) || isSeriesExtra
+                    val seasonsVal = details.seasons?.takeIf { it.isNotEmpty() } ?: prefill?.seasons
                     val mergedDetails = if (prefill != null) {
                         details.copy(
+                            title = resolvedTitle,
                             imageUrl = details.imageUrl?.takeIf { it.isNotBlank() } ?: prefill.imageUrl,
                             backdropUrl = details.backdropUrl?.takeIf { it.isNotBlank() } ?: prefill.backdropUrl,
                             description = details.description?.takeIf { it.isNotBlank() } ?: prefill.description,
                             rating = details.rating?.takeIf { it.isNotBlank() } ?: prefill.rating,
                             year = details.year?.takeIf { it.isNotBlank() } ?: prefill.year,
                             quality = details.quality?.takeIf { it.isNotBlank() } ?: prefill.quality,
+                            isSeries = isSeriesVal,
+                            seasons = seasonsVal,
                             streamUrl = details.streamUrl?.takeIf { it.isNotBlank() } ?: prefill.streamUrl
                         )
                     } else {
-                        details
+                        details.copy(
+                            title = resolvedTitle,
+                            isSeries = isSeriesVal,
+                            seasons = seasonsVal
+                        )
                     }
                     currentItem = mergedDetails
                     displayDetails(mergedDetails)
@@ -263,18 +365,18 @@ class DetailsActivity : AppCompatActivity() {
 
         // Handle Series structure (Seasons / Episodes) vs Movie
         if (item.isSeries && !item.seasons.isNullOrEmpty()) {
-            binding.tvPlayText.text = "WATCH NOW / EPISODES"
             binding.layoutSeasons.visibility = View.VISIBLE
             binding.layoutEpisodes.visibility = View.VISIBLE
 
             setupSeriesUI(item.seasons)
         } else {
-            binding.tvPlayText.text = "WATCH MOVIE"
             binding.layoutSeasons.visibility = View.GONE
             binding.layoutEpisodes.visibility = View.GONE
         }
         
         binding.btnPlay.requestFocus() // Focus main CTA for TV navigations
+
+        checkWatchHistoryAndUpdateCta()
 
         // Fetch rich background details from TMDB
         fetchTmdbExtraDetails(item.title, item.year, item.isSeries)
@@ -291,14 +393,14 @@ class DetailsActivity : AppCompatActivity() {
         genres.forEach { genre ->
             val textView = android.widget.TextView(this).apply {
                 text = genre
-                setTextColor(android.graphics.Color.WHITE)
-                textSize = 11f
+                setTextColor(android.graphics.Color.parseColor("#E5E7EB"))
+                textSize = 11.5f
                 setTypeface(null, android.graphics.Typeface.BOLD)
                 setPadding(
-                    (12 * density).toInt(),
-                    (4 * density).toInt(),
-                    (12 * density).toInt(),
-                    (4 * density).toInt()
+                    (10 * density).toInt(),
+                    (3.5 * density).toInt(),
+                    (10 * density).toInt(),
+                    (3.5 * density).toInt()
                 )
                 val params = android.widget.LinearLayout.LayoutParams(
                     android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -320,7 +422,14 @@ class DetailsActivity : AppCompatActivity() {
         }
         binding.castSection.visibility = View.VISIBLE
         binding.rvCast.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        binding.rvCast.adapter = com.example.zubflix.adapter.CastAdapter(castMembers)
+        binding.rvCast.adapter = com.example.zubflix.adapter.CastAdapter(castMembers) { member ->
+            val intent = Intent(this@DetailsActivity, com.example.zubflix.PersonDetailsActivity::class.java).apply {
+                putExtra("PERSON_ID", member.id ?: -1)
+                putExtra("PERSON_NAME", member.name)
+                putExtra("PERSON_PROFILE", member.profilePath)
+            }
+            startActivity(intent)
+        }
     }
 
     private fun fetchTmdbExtraDetails(title: String, year: String?, isSeries: Boolean) {
@@ -369,6 +478,40 @@ class DetailsActivity : AppCompatActivity() {
                             // Ignore Glide exception
                         }
                     }
+
+                    // Fallback TV Series seasons if currentItem doesn't have seasons yet
+                    if (isSeries && (currentItem?.seasons.isNullOrEmpty())) {
+                        val tmdbSeasons = withContext(Dispatchers.IO) {
+                            com.example.zubflix.utils.TmdbHelper.fetchTvSeasonsAndEpisodes(
+                                this@DetailsActivity,
+                                tmdbDetails.imdbId,
+                                title,
+                                year
+                            )
+                        }
+                        if (!tmdbSeasons.isNullOrEmpty()) {
+                            val streamingSeasons = tmdbSeasons.map { s ->
+                                val encodedT = java.net.URLEncoder.encode(title, "UTF-8")
+                                val episodes = s.episodes.map { ep ->
+                                    StreamingEpisode(
+                                        title = "S${s.seasonNumber}E${ep.episodeNumber} - ${ep.title}",
+                                        streamUrl = "nuvio_resolve/series:${tmdbDetails.imdbId ?: ""}:${s.seasonNumber}:${ep.episodeNumber}:$encodedT:${year ?: "0"}",
+                                        stillUrl = ep.stillPath,
+                                        overview = ep.overview
+                                    )
+                                }
+                                StreamingSeason(
+                                    title = s.name,
+                                    episodes = episodes,
+                                    seasonNumber = s.seasonNumber
+                                )
+                            }
+                            currentItem = currentItem?.copy(seasons = streamingSeasons, isSeries = true)
+                            binding.layoutSeasons.visibility = View.VISIBLE
+                            binding.layoutEpisodes.visibility = View.VISIBLE
+                            setupSeriesUI(streamingSeasons)
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -379,14 +522,21 @@ class DetailsActivity : AppCompatActivity() {
     private fun setupSeriesUI(seasons: List<StreamingSeason>) {
         // Seasons Horizontal Row
         binding.rvSeasons.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        seasonAdapter = SeasonAdapter(seasons) { selectedSeason, position ->
-            if (selectedSeason.episodes.isEmpty()) {
-                loadEpisodesForSeason(selectedSeason, position)
+        val initialSeason = seasons.find { it.seasonNumber == targetSeasonNumber } ?: seasons.firstOrNull()
+        val initialPos = if (initialSeason != null) seasons.indexOf(initialSeason) else 0
+
+        seasonAdapter = SeasonAdapter(seasons, initialPos) { selectedSeason, position ->
+            val selSeason = currentItem?.seasons?.getOrNull(position) ?: selectedSeason
+            if (selSeason.episodes.isEmpty()) {
+                loadEpisodesForSeason(selSeason, position)
             } else {
-                displayEpisodes(selectedSeason.episodes, selectedSeason.seasonNumber)
+                displayEpisodes(selSeason.episodes, selSeason.seasonNumber)
             }
         }
         binding.rvSeasons.adapter = seasonAdapter
+        if (initialPos > 0) {
+            binding.rvSeasons.scrollToPosition(initialPos)
+        }
 
         // Episodes List Layout Manager (Based on AppearanceSettings preference)
         val isHorizontalEpLayout = com.example.zubflix.util.AppearanceSettings.getEpisodeLayout(this) == com.example.zubflix.util.AppearanceSettings.EPISODE_LAYOUT_HORIZONTAL
@@ -396,12 +546,11 @@ class DetailsActivity : AppCompatActivity() {
             false
         )
         binding.rvEpisodes.isNestedScrollingEnabled = false
-        val firstSeason = seasons.firstOrNull()
-        if (firstSeason != null) {
-            if (firstSeason.episodes.isEmpty()) {
-                loadEpisodesForSeason(firstSeason, 0)
+        if (initialSeason != null) {
+            if (initialSeason.episodes.isEmpty()) {
+                loadEpisodesForSeason(initialSeason, initialPos)
             } else {
-                displayEpisodes(firstSeason.episodes, firstSeason.seasonNumber)
+                displayEpisodes(initialSeason.episodes, initialSeason.seasonNumber)
             }
         }
     }
@@ -417,7 +566,16 @@ class DetailsActivity : AppCompatActivity() {
                 if (source == null) return@launch
 
                 val episodes = withContext(Dispatchers.IO) {
-                    source.getSeasonEpisodes(itemId, season.seasonNumber)
+                    var eps = source.getSeasonEpisodes(itemId, season.seasonNumber)
+                    if (eps.isEmpty() && (itemId.startsWith("tmdb") || sourceName.contains("Nuvio", ignoreCase = true))) {
+                        try {
+                            val nuvio = com.example.zubflix.sources.NuvioSource(this@DetailsActivity)
+                            eps = nuvio.getSeasonEpisodes(itemId, season.seasonNumber)
+                        } catch (e: Exception) {
+                            Log.e("DetailsActivity", "Error in Nuvio fallback getSeasonEpisodes", e)
+                        }
+                    }
+                    eps
                 }
                 
                 if (episodes.isNotEmpty()) {
@@ -455,46 +613,151 @@ class DetailsActivity : AppCompatActivity() {
         }
     }
 
+    private fun extractEpisodeNumber(episode: StreamingEpisode, defaultIndex: Int): Int {
+        if (episode.streamUrl.startsWith("nuvio_resolve/series")) {
+            val parts = episode.streamUrl.removePrefix("nuvio_resolve/series:").removePrefix("nuvio_resolve/series").split(":")
+            if (parts.size >= 4) {
+                val possibleEp = parts.getOrNull(3)?.toIntOrNull() ?: parts.getOrNull(2)?.toIntOrNull()
+                if (possibleEp != null) return possibleEp
+            }
+        }
+        val match = Regex("(?i)\\b(?:Episode|Ep|E)\\s*0*(\\d+)\\b").find(episode.title)
+        return match?.groupValues?.get(1)?.toIntOrNull() ?: defaultIndex
+    }
+
+    private fun ensureNuvioUrlHasSeasonEpisode(url: String, seasonNumber: Int, episodeNumber: Int): String {
+        if (!url.startsWith("nuvio_resolve/series")) return url
+        val parts = url.removePrefix("nuvio_resolve/series:").removePrefix("nuvio_resolve/series").split(":")
+        return try {
+            if (parts.size >= 6) {
+                val tmdbId = parts[0]
+                val imdbId = parts[1]
+                val title = parts[4]
+                val year = parts.getOrNull(5) ?: "0"
+                "nuvio_resolve/series:$tmdbId:$imdbId:$seasonNumber:$episodeNumber:$title:$year"
+            } else if (parts.size >= 5) {
+                val id = parts[0]
+                val title = parts[3]
+                val year = parts.getOrNull(4) ?: "0"
+                "nuvio_resolve/series:$id:$seasonNumber:$episodeNumber:$title:$year"
+            } else {
+                url
+            }
+        } catch (_: Exception) {
+            url
+        }
+    }
+
     private fun displayEpisodes(episodes: List<StreamingEpisode>, seasonNumber: Int) {
         binding.tvEpisodesHeader.text = "SEASON $seasonNumber EPISODES"
         binding.tvEpisodesCount.text = "${episodes.size} EPISODES"
 
         episodeAdapter = EpisodeAdapter(episodes) { episode ->
             val epIndex = episodes.indexOf(episode)
-            val epNum = epIndex + 1 // Fallback episode number if we can't extract it
-
-            // Try to extract episode number from streamUrl or title first for correctness
-            // For example Nuvio: nuvio_resolve/series:tt14688458:3:1
-            val urlParts = episode.streamUrl.split(":")
-            val extractedEpNum = if (urlParts.size >= 4 && urlParts[0] == "nuvio_resolve") {
-                urlParts[3].toIntOrNull() ?: epNum
-            } else {
-                val match = Regex("(?i)E(\\d+)").find(episode.title)
-                match?.groupValues?.get(1)?.toIntOrNull() ?: epNum
-            }
-
-            // Extract IMDB ID from streamUrl if it exists (e.g., contains "tt\d+")
-            val imdbIdMatch = Regex("tt\\d+").find(episode.streamUrl)
-            val extractedImdbId = imdbIdMatch?.value ?: (if (itemId.startsWith("tt")) itemId else null)
-
-            if (episode.streamUrl.startsWith("servers/") ||
-                episode.streamUrl.startsWith("nuvio_resolve/") ||
-                episode.streamUrl.contains("|") ||
-                episode.streamUrl.contains("moviebox", ignoreCase = true) ||
-                episode.streamUrl.contains("movielinkbd", ignoreCase = true) ||
-                sourceName.contains("MovieBox", ignoreCase = true) ||
-                sourceName.contains("MovieLinkBD", ignoreCase = true) ||
-                sourceName.contains("CTGMovies", ignoreCase = true) ||
-                sourceName.contains("CTG", ignoreCase = true) ||
-                sourceName.contains("Nuvio", ignoreCase = true) ||
-                sourceName.contains("MovieBlast", ignoreCase = true) ||
-                !episode.streamUrl.startsWith("http")) {
-                resolveAndPlayLazy(episode.title, episode.streamUrl, seasonNumber, extractedEpNum, extractedImdbId)
-            } else {
-                playVideo(episode.title, episode.streamUrl, listOf(episode.streamUrl), null, seasonNumber, extractedEpNum, extractedImdbId)
-            }
+            val extractedEpNum = extractEpisodeNumber(episode, epIndex + 1)
+            playEpisodeItem(episode, seasonNumber, extractedEpNum)
         }
         binding.rvEpisodes.adapter = episodeAdapter
+
+        if (seasonNumber == targetSeasonNumber) {
+            val scrollPos = (targetEpisodeNumber - 1).coerceIn(0, (episodes.size - 1).coerceAtLeast(0))
+            binding.rvEpisodes.post {
+                binding.rvEpisodes.scrollToPosition(scrollPos)
+            }
+        }
+    }
+
+    private fun playTargetEpisode(seasonNumber: Int, episodeNumber: Int) {
+        val seasons = currentItem?.seasons
+        val targetSeason = seasons?.find { it.seasonNumber == seasonNumber } ?: seasons?.firstOrNull()
+
+        if (targetSeason != null) {
+            val epList = targetSeason.episodes
+            if (epList.isNotEmpty()) {
+                val ep = epList.find { episode ->
+                    val epNum = extractEpisodeNumber(episode, -1)
+                    epNum == episodeNumber
+                }
+
+                if (ep != null) {
+                    playEpisodeItem(ep, targetSeason.seasonNumber, episodeNumber)
+                    return
+                }
+            }
+            loadEpisodesForSeasonAndPlay(targetSeason, seasonNumber, episodeNumber)
+        } else {
+            binding.scrollView.post {
+                binding.scrollView.smoothScrollTo(0, binding.layoutEpisodes.top)
+            }
+        }
+    }
+
+    private fun playEpisodeItem(episode: StreamingEpisode, seasonNumber: Int, episodeNumber: Int) {
+        val imdbIdMatch = Regex("tt\\d+").find(episode.streamUrl)
+        val extractedImdbId = imdbIdMatch?.value ?: (if (itemId.startsWith("tt")) itemId else null)
+        val targetUrl = ensureNuvioUrlHasSeasonEpisode(episode.streamUrl, seasonNumber, episodeNumber)
+
+        if (targetUrl.startsWith("servers/") ||
+            targetUrl.startsWith("nuvio_resolve/") ||
+            targetUrl.contains("|") ||
+            targetUrl.contains("moviebox", ignoreCase = true) ||
+            targetUrl.contains("movielinkbd", ignoreCase = true) ||
+            sourceName.contains("MovieBox", ignoreCase = true) ||
+            sourceName.contains("MovieLinkBD", ignoreCase = true) ||
+            sourceName.contains("CTGMovies", ignoreCase = true) ||
+            sourceName.contains("CTG", ignoreCase = true) ||
+            sourceName.contains("Nuvio", ignoreCase = true) ||
+            sourceName.contains("MovieBlast", ignoreCase = true) ||
+            !targetUrl.startsWith("http")) {
+            resolveAndPlayLazy(episode.title, targetUrl, seasonNumber, episodeNumber, extractedImdbId)
+        } else {
+            playVideo(episode.title, targetUrl, listOf(targetUrl), null, seasonNumber, episodeNumber, extractedImdbId)
+        }
+    }
+
+    private fun loadEpisodesForSeasonAndPlay(season: StreamingSeason, seasonNumber: Int, episodeNumber: Int) {
+        binding.loadingProgress.visibility = View.VISIBLE
+        lifecycleScope.launch {
+            try {
+                var source = SourceManager.getSourceByName(sourceName)
+                if (source == null) {
+                    source = SourceManager.getSelectedSource(this@DetailsActivity)
+                }
+                if (source == null) return@launch
+
+                val episodes = withContext(Dispatchers.IO) {
+                    source.getSeasonEpisodes(itemId, season.seasonNumber)
+                }
+                if (episodes.isNotEmpty()) {
+                    val updatedSeasons = currentItem?.seasons?.map {
+                        if (it.seasonNumber == season.seasonNumber) {
+                            it.copy(episodes = episodes)
+                        } else {
+                            it
+                        }
+                    } ?: emptyList()
+                    currentItem = currentItem?.copy(seasons = updatedSeasons)
+
+                    val ep = episodes.find { episode ->
+                        val epNum = extractEpisodeNumber(episode, -1)
+                        epNum == episodeNumber
+                    }
+
+                    if (ep != null) {
+                        playEpisodeItem(ep, seasonNumber, episodeNumber)
+                    } else {
+                        Toast.makeText(this@DetailsActivity, "Episode S${seasonNumber}:E${episodeNumber} is not released or available yet", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Toast.makeText(this@DetailsActivity, "Failed to load episodes for ${season.title}", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(this@DetailsActivity, "Error loading episode: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                binding.loadingProgress.visibility = View.GONE
+            }
+        }
     }
 
     private fun resolveAndPlayLazy(
@@ -504,10 +767,15 @@ class DetailsActivity : AppCompatActivity() {
         episodeNumber: Int? = null,
         imdbId: String? = null
     ) {
-        if (com.example.zubflix.util.PlaybackSettings.isAutoPlayEnabled(this)) {
-            startAutoPlayScraping(title, lazyUrl, seasonNumber, episodeNumber, imdbId)
+        val finalUrl = if (seasonNumber != null && episodeNumber != null) {
+            ensureNuvioUrlHasSeasonEpisode(lazyUrl, seasonNumber, episodeNumber)
         } else {
-            showNuvioStreamSelectorBottomSheet(title, lazyUrl, seasonNumber, episodeNumber, imdbId)
+            lazyUrl
+        }
+        if (com.example.zubflix.util.PlaybackSettings.isAutoPlayEnabled(this)) {
+            startAutoPlayScraping(title, finalUrl, seasonNumber, episodeNumber, imdbId)
+        } else {
+            showNuvioStreamSelectorBottomSheet(title, finalUrl, seasonNumber, episodeNumber, imdbId)
         }
     }
 
@@ -542,7 +810,11 @@ class DetailsActivity : AppCompatActivity() {
                     activeSource = com.example.zubflix.sources.NuvioSource(this@DetailsActivity)
                 }
                 if (activeSource == null && (sourceName.contains("MovieBox", ignoreCase = true) || lazyUrl.contains("|"))) {
-                    activeSource = com.example.zubflix.sources.MovieBoxWebSource()
+                    activeSource = when {
+                        sourceName.equals("MovieBoxIN", ignoreCase = true) -> com.example.zubflix.sources.MovieBoxINSource()
+                        sourceName.equals("MovieBoxApp", ignoreCase = true) -> com.example.zubflix.sources.MovieBoxAppSource()
+                        else -> com.example.zubflix.sources.MovieBoxWebSource()
+                    }
                 }
 
                 val onProgressCallback: suspend (Int, Int) -> Unit = { done, total ->
@@ -593,6 +865,10 @@ class DetailsActivity : AppCompatActivity() {
                 } else if (activeSource is com.example.zubflix.sources.MovieLinkBDSource) {
                     activeSource.extractVideoLinksStreaming(lazyUrl, onProgressCallback, onStreamFoundCallback)
                 } else if (activeSource is com.example.zubflix.sources.MovieBoxWebSource) {
+                    activeSource.extractVideoLinksStreaming(lazyUrl, onProgressCallback, onStreamFoundCallback)
+                } else if (activeSource is com.example.zubflix.sources.MovieBoxAppSource) {
+                    activeSource.extractVideoLinksStreaming(lazyUrl, onProgressCallback, onStreamFoundCallback)
+                } else if (activeSource is com.example.zubflix.sources.MovieBoxINSource) {
                     activeSource.extractVideoLinksStreaming(lazyUrl, onProgressCallback, onStreamFoundCallback)
                 } else if (activeSource is com.example.zubflix.sources.CtgMoviesSource) {
                     activeSource.extractVideoLinksStreaming(lazyUrl, onProgressCallback, onStreamFoundCallback)
@@ -793,6 +1069,7 @@ class DetailsActivity : AppCompatActivity() {
         var selectedCategory = "All"
         
         class NuvioStreamViewHolder(itemView: android.view.View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(itemView) {
+            val tvStreamIndex: android.widget.TextView = itemView.findViewById(R.id.tv_stream_index)
             val tvAddonProvider: android.widget.TextView = itemView.findViewById(R.id.tv_addon_provider)
             val tvMoniker: android.widget.TextView = itemView.findViewById(R.id.tv_moniker)
             val tvTorrentTitle: android.widget.TextView = itemView.findViewById(R.id.tv_torrent_title)
@@ -801,6 +1078,23 @@ class DetailsActivity : AppCompatActivity() {
             val tvBadgeAudio: android.widget.TextView = itemView.findViewById(R.id.tv_badge_audio)
             val tvBadgeQuality: android.widget.TextView = itemView.findViewById(R.id.tv_badge_quality)
             val tvBadgeCodec: android.widget.TextView = itemView.findViewById(R.id.tv_badge_codec)
+            val viewAccentBar: android.view.View = itemView.findViewById(R.id.view_accent_bar)
+
+            init {
+                itemView.isFocusable = true
+                itemView.isClickable = true
+                itemView.setOnFocusChangeListener { view, hasFocus ->
+                    if (hasFocus) {
+                        view.scaleX = 1.02f
+                        view.scaleY = 1.02f
+                        view.translationZ = 4f
+                    } else {
+                        view.scaleX = 1.0f
+                        view.scaleY = 1.0f
+                        view.translationZ = 0f
+                    }
+                }
+            }
         }
 
         val adapter = object : androidx.recyclerview.widget.RecyclerView.Adapter<NuvioStreamViewHolder>() {
@@ -813,8 +1107,21 @@ class DetailsActivity : AppCompatActivity() {
                 val item = displayedSourceList[position]
                 val parsed = parseStream(item.first, item.second)
                 
-                holder.tvAddonProvider.text = parsed.addonName.ifEmpty { "Unknown Addon" }
+                // Set index number (01, 02, 03...)
+                val indexStr = (position + 1).toString().padStart(2, '0')
+                holder.tvStreamIndex.text = indexStr
+
+                val addonDisplayName = parsed.addonName.ifEmpty { "Unknown Addon" }
+                holder.tvAddonProvider.text = addonDisplayName
                 
+                // Set distinct background and text color based on provider/addon type
+                val addonStyle = com.example.zubflix.util.StreamUIUtils.getAddonStyle(addonDisplayName)
+                holder.tvAddonProvider.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor(addonStyle.bgHex))
+                holder.tvAddonProvider.setTextColor(android.graphics.Color.parseColor(addonStyle.textHex))
+                
+                // Set accent bar color matching the provider style
+                holder.viewAccentBar.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor(addonStyle.bgHex))
+
                 if (parsed.moniker.isNotEmpty()) {
                     holder.tvMoniker.text = parsed.moniker
                     holder.tvMoniker.visibility = android.view.View.VISIBLE
@@ -822,7 +1129,7 @@ class DetailsActivity : AppCompatActivity() {
                     holder.tvMoniker.visibility = android.view.View.GONE
                 }
                 
-                holder.tvTorrentTitle.text = parsed.torrentName
+                holder.tvTorrentTitle.text = com.example.zubflix.util.StreamUIUtils.sanitizeTitle(parsed.torrentName, parsed.attributes)
                 
                 // Reset badges
                 holder.tvBadgeResolution.visibility = android.view.View.GONE
@@ -919,8 +1226,15 @@ class DetailsActivity : AppCompatActivity() {
             categories.add(Pair("All", allSourceList.size))
 
             // Preferred chip display order
-            val priorityKeys = listOf("1080p", "720p", "4K", "480p", "BDIX", "Penguplay", "Local Scrapers")
+            val visibleQualities = com.example.zubflix.util.PlaybackSettings.getVisibleQualityChips(this@DetailsActivity)
+            val qualityKeys = listOf("1080p", "720p", "4K", "480p")
+            val priorityKeys = listOf("1080p", "720p", "4K", "480p", "MovieBox", "BDIX", "Penguplay", "Local Scrapers")
+            
             priorityKeys.forEach { key ->
+                if (qualityKeys.contains(key) && !visibleQualities.contains(key)) {
+                    // User disabled this quality chip in Settings
+                    return@forEach
+                }
                 if (tagCounts.containsKey(key)) {
                     categories.add(Pair(key, tagCounts[key]!!))
                 }
@@ -953,6 +1267,8 @@ class DetailsActivity : AppCompatActivity() {
                     lp.setMargins(0, 0, (8 * resources.displayMetrics.density).toInt(), 0)
                     layoutParams = lp
 
+                    tag = cat
+
                     val isSelected = (cat == selectedCategory)
                     if (isSelected) {
                         setTextColor(android.graphics.Color.WHITE)
@@ -972,11 +1288,39 @@ class DetailsActivity : AppCompatActivity() {
                         }
                     }
 
-                    setOnFocusChangeListener { _, hasFocus ->
+                    setOnFocusChangeListener { v, hasFocus ->
                         if (hasFocus) {
-                            animate().scaleX(1.05f).scaleY(1.05f).setDuration(150).start()
+                            v.animate().scaleX(1.05f).scaleY(1.05f).setDuration(150).start()
+                            if (selectedCategory != cat) {
+                                selectedCategory = cat
+                                // Update chip selection UI
+                                for (i in 0 until layoutFilterTabs.childCount) {
+                                    val child = layoutFilterTabs.getChildAt(i) as? android.widget.TextView ?: continue
+                                    val childCat = child.tag as? String ?: continue
+                                    if (childCat == selectedCategory) {
+                                        child.setTextColor(android.graphics.Color.WHITE)
+                                        child.setBackgroundResource(R.drawable.bg_season_chip_selected)
+                                    } else {
+                                        child.setTextColor(android.graphics.Color.parseColor("#AAAAAA"))
+                                        child.setBackgroundResource(R.drawable.bg_season_chip_unselected)
+                                    }
+                                }
+                                // Filter stream list
+                                displayedSourceList.clear()
+                                if (selectedCategory == "All") {
+                                    displayedSourceList.addAll(allSourceList)
+                                } else {
+                                    displayedSourceList.addAll(allSourceList.filter { getScraperCategoryTags(it.first).contains(selectedCategory) })
+                                }
+                                adapter.notifyDataSetChanged()
+                                emptyStateView.visibility = if (displayedSourceList.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
+                            }
+                            scrollFilterTabs.post {
+                                val scrollTo = v.left - (scrollFilterTabs.width / 2) + (v.width / 2)
+                                scrollFilterTabs.smoothScrollTo(scrollTo.coerceAtLeast(0), 0)
+                            }
                         } else {
-                            animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+                            v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
                         }
                     }
                 }
@@ -1028,7 +1372,11 @@ class DetailsActivity : AppCompatActivity() {
                         activeSource = com.example.zubflix.sources.NuvioSource(this@DetailsActivity)
                     }
                 if (activeSource == null && (sourceName.contains("MovieBox", ignoreCase = true) || lazyUrl.contains("|"))) {
-                    activeSource = com.example.zubflix.sources.MovieBoxWebSource()
+                    activeSource = when {
+                        sourceName.equals("MovieBoxIN", ignoreCase = true) -> com.example.zubflix.sources.MovieBoxINSource()
+                        sourceName.equals("MovieBoxApp", ignoreCase = true) -> com.example.zubflix.sources.MovieBoxAppSource()
+                        else -> com.example.zubflix.sources.MovieBoxWebSource()
+                    }
                 }
 
                 Log.d("DetailsActivity", "Active source resolved to: ${activeSource?.javaClass?.simpleName ?: "NULL"}")
@@ -1110,7 +1458,25 @@ class DetailsActivity : AppCompatActivity() {
                         onProgress = { done, total ->
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                 if (done < total) {
-                                    tvSubtitle.text = "Scraping MovieBox: $done of $total links"
+                                    tvSubtitle.text = "Scraping MovieBoxWeb: $done of $total links"
+                                }
+                            }
+                        },
+                        onStreamFound = { streams ->
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                emptyStateView.visibility = android.view.View.GONE
+                                allSourceList.addAll(streams.toList())
+                                allSourceList.sortByDescending { getStreamQualityScore(it.first, it.second) }
+                                updateStreamFilterUI()
+                            }
+                        }
+                    )
+                } else if (activeSource is com.example.zubflix.sources.MovieBoxAppSource) {
+                    activeSource.extractVideoLinksStreaming(lazyUrl,
+                        onProgress = { done, total ->
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                if (done < total) {
+                                    tvSubtitle.text = "Scraping MovieBoxApp: $done of $total links"
                                 }
                             }
                         },
@@ -1147,6 +1513,24 @@ class DetailsActivity : AppCompatActivity() {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                 if (done < total) {
                                     tvSubtitle.text = "Scraping Cinefreak: $done of $total links"
+                                }
+                            }
+                        },
+                        onStreamFound = { streams ->
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                emptyStateView.visibility = android.view.View.GONE
+                                allSourceList.addAll(streams.toList())
+                                allSourceList.sortByDescending { getStreamQualityScore(it.first, it.second) }
+                                updateStreamFilterUI()
+                            }
+                        }
+                    )
+                } else if (activeSource is com.example.zubflix.sources.MovieBoxINSource) {
+                    activeSource.extractVideoLinksStreaming(lazyUrl,
+                        onProgress = { done, total ->
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                if (done < total) {
+                                    tvSubtitle.text = "Scraping MovieBoxIN: $done of $total links"
                                 }
                             }
                         },
@@ -1279,7 +1663,8 @@ class DetailsActivity : AppCompatActivity() {
         seasonNumber: Int? = null,
         episodeNumber: Int? = null,
         imdbId: String? = null,
-        allNames: List<String> = emptyList()
+        allNames: List<String> = emptyList(),
+        forceRestart: Boolean = false
     ) {
         val streamItems = if (allNames.isNotEmpty() && allNames.size == allUrls.size) {
             allNames.zip(allUrls).map { com.example.zubflix.util.ActiveStreamManager.StreamItem(it.first, it.second) }
@@ -1295,8 +1680,12 @@ class DetailsActivity : AppCompatActivity() {
             putExtra("VIDEO_TITLE", title)
             putExtra("ITEM_ID", itemId)
             putExtra("IMAGE_URL", currentItem?.imageUrl)
+            putExtra("BACKDROP_URL", currentItem?.backdropUrl)
             putExtra("IS_SERIES", currentItem?.isSeries ?: false)
             putExtra("SOURCE_NAME", sourceName)
+            if (forceRestart) {
+                putExtra("FORCE_RESTART", true)
+            }
             if (seasonNumber != null) {
                 putExtra("SEASON_NUMBER", seasonNumber)
             }
@@ -1355,35 +1744,8 @@ class DetailsActivity : AppCompatActivity() {
 
     private fun playEpisodeItem(episode: StreamingEpisode, seasonNumber: Int) {
         val epIndex = currentItem?.seasons?.firstOrNull { it.seasonNumber == seasonNumber }?.episodes?.indexOf(episode) ?: 0
-        val epNum = epIndex + 1
-
-        val urlParts = episode.streamUrl.split(":")
-        val extractedEpNum = if (urlParts.size >= 4 && urlParts[0] == "nuvio_resolve") {
-            urlParts[3].toIntOrNull() ?: epNum
-        } else {
-            val match = Regex("(?i)E(\\d+)").find(episode.title)
-            match?.groupValues?.get(1)?.toIntOrNull() ?: epNum
-        }
-
-        val imdbIdMatch = Regex("tt\\d+").find(episode.streamUrl)
-        val extractedImdbId = imdbIdMatch?.value ?: (if (itemId.startsWith("tt")) itemId else null)
-
-        if (episode.streamUrl.startsWith("servers/") ||
-            episode.streamUrl.startsWith("nuvio_resolve/") ||
-            episode.streamUrl.contains("|") ||
-            episode.streamUrl.contains("moviebox", ignoreCase = true) ||
-            episode.streamUrl.contains("movielinkbd", ignoreCase = true) ||
-            sourceName.contains("MovieBox", ignoreCase = true) ||
-            sourceName.contains("MovieLinkBD", ignoreCase = true) ||
-            sourceName.contains("CTGMovies", ignoreCase = true) ||
-            sourceName.contains("CTG", ignoreCase = true) ||
-            sourceName.contains("Nuvio", ignoreCase = true) ||
-            sourceName.contains("MovieBlast", ignoreCase = true) ||
-            !episode.streamUrl.startsWith("http")) {
-            resolveAndPlayLazy(episode.title, episode.streamUrl, seasonNumber, extractedEpNum, extractedImdbId)
-        } else {
-            playVideo(episode.title, episode.streamUrl, listOf(episode.streamUrl), null, seasonNumber, extractedEpNum, extractedImdbId)
-        }
+        val extractedEpNum = extractEpisodeNumber(episode, epIndex + 1)
+        playEpisodeItem(episode, seasonNumber, extractedEpNum)
     }
 
     private fun updateMyListButton() {

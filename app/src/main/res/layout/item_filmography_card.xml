@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="225dp"
+    android:layout_margin="4dp"
+    app:cardCornerRadius="8dp"
+    app:cardBackgroundColor="#1A1A1A"
+    app:cardElevation="0dp"
+    android:focusable="true"
+    android:clickable="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="?attr/selectableItemBackground">
+
+        <!-- Poster Area with Badges -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="165dp">
+
+            <ImageView
+                android:id="@+id/img_poster"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/bg_smart_poster" />
+
+            <!-- Media Type Badge (Top-Left) -->
+            <TextView
+                android:id="@+id/tv_media_type_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|start"
+                android:layout_margin="6dp"
+                android:background="@drawable/bg_movie_chip"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2.5dp"
+                android:text="🎬 MOVIE"
+                android:textColor="#FFFFFF"
+                android:textSize="9.5sp"
+                android:textStyle="bold" />
+
+            <!-- Rating Badge (Top-Right) -->
+            <TextView
+                android:id="@+id/tv_rating_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|end"
+                android:layout_margin="6dp"
+                android:background="@drawable/bg_rating_chip"
+                android:paddingHorizontal="5dp"
+                android:paddingVertical="2.5dp"
+                android:text="★ 8.5"
+                android:textColor="#FFC107"
+                android:textSize="9.5sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+        </FrameLayout>
+
+        <!-- Bottom Info Block -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:orientation="vertical"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp">
+
+            <TextView
+                android:id="@+id/tv_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFF"
+                android:textSize="12.5sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="Title" />
+
+            <TextView
+                android:id="@+id/tv_subtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="#9E9E9E"
+                android:textSize="10.5sp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="2023 • Character" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>

@@ -66,11 +66,18 @@ class MovieLinkBDSource : StreamingSource {
     private suspend fun getBase(): String = withContext(Dispatchers.IO) {
         resolvedBase?.let { return@withContext it }
 
+        // Seeds: MovieLinkBD active domains and unblocked proxy gateways
         val seeds = listOf(
+            "https://tg522w.movielinkbd.pw",
+            "https://8hk778.movielinkbd.pw",
+            "https://movielinkbd.pw",
             "https://movielinkbd.one",
             "https://movielinkbd.com",
+            "https://tg522w.movielinkbd.li",
             "https://movielinkbd.li",
-            "https://ptj7yg.movielinkbd.li"
+            "https://movielinkbd.tv",
+            "https://movielinkbd.work",
+            "https://movielinkbd.shop"
         )
 
         for (seed in seeds) {
@@ -86,51 +93,70 @@ class MovieLinkBDSource : StreamingSource {
 
                     val finalUrl = response.request.url.toString()
                     val responseBodyStr = response.body?.string() ?: ""
-
-                    // Parse the HTML content to look for explicit redirect/portal links
                     val doc = Jsoup.parse(responseBodyStr, finalUrl)
-                    var targetLink: String? = null
 
-                    // Look for <a> tags containing "new site" or "visit movielinkbd"
-                    val aTags = doc.select("a")
-                    for (a in aTags) {
-                        val text = a.text().lowercase(java.util.Locale.ROOT)
-                        if (text.contains("new site") || text.contains("visit movielinkbd")) {
-                            val href = a.attr("abs:href").trim()
-                            if (href.isNotEmpty()) {
-                                targetLink = href
-                                break
-                            }
-                        }
-                    }
-
-                    // If not found, look for any <a> tag pointing to a different movielinkbd domain
-                    if (targetLink == null) {
-                        val selector = "a[href*='movielinkbd']:not([href*='movielinkbd.one']):not([href*='movielinkbd.com'])"
-                        val match = doc.selectFirst(selector)
-                        if (match != null) {
-                            val href = match.attr("abs:href").trim()
-                            if (href.isNotEmpty()) {
-                                targetLink = href
-                            }
-                        }
-                    }
-
-                    val resolvedUrl = targetLink ?: finalUrl
-                    val uri = java.net.URI(resolvedUrl.trimEnd('/'))
-                    val base = "${uri.scheme}://${uri.host}"
-                    if (base.contains("movielinkbd")) {
+                    // 1. If this seed page already contains movie cards, this is directly the active base!
+                    val hasCards = doc.select("div.movie-item, div.item-box, div.film-item, div.post-item, .movie-card, a[href*='/movie/']").isNotEmpty()
+                    if (hasCards) {
+                        val uri = java.net.URI(finalUrl.trimEnd('/'))
+                        val base = "${uri.scheme}://${uri.host}"
                         resolvedBase = base
                         return@withContext base
                     }
+
+                    // 2. If it is a landing/portal hub (such as movielinkbd.one), look for candidate target links
+                    val candidates = mutableListOf<String>()
+
+                    // Priority 1: Proxy CTA link (class="cta-proxy", or containing "movielinkbd.pw")
+                    doc.select("a.cta-proxy, a[href*='movielinkbd.pw'], a:contains(Proxy Site), a:contains(প্রক্সি)").forEach { a ->
+                        val href = a.attr("abs:href").trim()
+                        if (href.isNotEmpty()) candidates.add(href)
+                    }
+
+                    // Priority 2: New site CTA link
+                    doc.select("a.cta-main, a:contains(New Site), a:contains(Visit MovieLinkBD)").forEach { a ->
+                        val href = a.attr("abs:href").trim()
+                        if (href.isNotEmpty()) candidates.add(href)
+                    }
+
+                    // Priority 3: Other official mirrors
+                    doc.select(".mlbd-home-mirrors a, a[href*='movielinkbd']").forEach { a ->
+                        val href = a.attr("abs:href").trim()
+                        if (href.isNotEmpty() && !href.contains("movielinkbd.one") && !href.contains("movielinkbd.com")) {
+                            candidates.add(href)
+                        }
+                    }
+
+                    // Verify candidate targets
+                    for (cand in candidates.distinct()) {
+                        try {
+                            val candReq = Request.Builder().url(cand).apply {
+                                headers.forEach { (k, v) -> addHeader(k, v) }
+                            }.build()
+                            client.newCall(candReq).execute().use { candResp ->
+                                if (candResp.isSuccessful || candResp.code == 302 || candResp.code == 301) {
+                                    val candFinal = candResp.request.url.toString()
+                                    val candHtml = candResp.body?.string() ?: ""
+                                    if (candHtml.contains("movie-card") || candHtml.contains("/movie/") || candHtml.contains("MovieLinkBD")) {
+                                        val uri = java.net.URI(candFinal.trimEnd('/'))
+                                        val base = "${uri.scheme}://${uri.host}"
+                                        resolvedBase = base
+                                        return@withContext base
+                                    }
+                                }
+                            }
+                        } catch (ce: Exception) {
+                            // Candidate unreachable, try next
+                        }
+                    }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                // Seed failed, continue to next seed
             }
         }
 
-        // Ultimate fallback if everything fails
-        val ultimateFallback = "https://movielinkbd.one"
+        // Ultimate fallback
+        val ultimateFallback = "https://8hk778.movielinkbd.pw"
         resolvedBase = ultimateFallback
         ultimateFallback
     }
@@ -158,6 +184,9 @@ class MovieLinkBDSource : StreamingSource {
         headers.forEach { (k, v) -> requestBuilder.addHeader(k, v) }
         val request = requestBuilder.build()
         client.newCall(request).execute().use { response ->
+            if (response.code == 403) {
+                resolvedBase = null
+            }
             if (!response.isSuccessful) throw Exception("HTTP ${response.code}")
             response.body?.string() ?: ""
         }
@@ -166,30 +195,43 @@ class MovieLinkBDSource : StreamingSource {
     private fun parseMovieCards(doc: org.jsoup.nodes.Document, base: String): List<StreamingItem> {
         val results = mutableListOf<StreamingItem>()
         val cards = doc.select("div.movie-item, div.item-box, div.film-item, div.post-item, .movie-card")
-        val movieLinkPattern = "a[href*='/movie/'], a[href*='/series/'], a[href*='/anime/'], a[href*='/download18plus/']"
+        val movieLinkPattern = "a[href*='/movie/'], a[href*='/series/'], a[href*='/anime/'], a[href*='/drama/'], a[href*='/download18plus/']"
 
         if (cards.isNotEmpty()) {
             cards.forEach { card ->
-                val aTag = card.selectFirst(movieLinkPattern) ?: return@forEach
-                var href = aTag.attr("href")
-                if (href.isBlank()) return@forEach
+                val titleAnchor = card.selectFirst(".content a.title, .content a[href], a.title, [class*='title'] a")
+                val fallbackAnchor = card.selectFirst(movieLinkPattern)
+                val aTag = titleAnchor ?: fallbackAnchor ?: return@forEach
+
+                var href = aTag.attr("href").trim().ifEmpty { fallbackAnchor?.attr("href")?.trim() ?: "" }
+                if (href.isBlank() || href.contains("/page/") || href.contains("/type/") ||
+                    href.contains("/category/") || href.contains("/genre/") || href.contains("/language/")) return@forEach
+
                 if (!href.startsWith("http")) {
                     href = base + (if (href.startsWith("/")) "" else "/") + href
                 }
 
-                val title = card.selectFirst(".title, .movie-title, h3, h2")?.text()?.trim()
-                    ?: aTag.attr("title")?.trim()
+                val title = card.selectFirst(".content .title, a.title, .title, .movie-title, h3, h2")?.text()?.trim()
+                    ?.takeIf { it.isNotBlank() }
+                    ?: titleAnchor?.text()?.trim()?.takeIf { it.isNotBlank() }
+                    ?: card.selectFirst("a[title]")?.attr("title")?.trim()?.takeIf { it.isNotBlank() }
+                    ?: card.selectFirst("img")?.attr("alt")?.trim()?.takeIf { it.isNotBlank() }
+                    ?: card.selectFirst("img")?.attr("title")?.trim()?.takeIf { it.isNotBlank() }
+                    ?: aTag.attr("title").trim().takeIf { it.isNotBlank() }
                     ?: ""
-                if (title.isBlank()) return@forEach
+                if (title.isBlank() || title.equals("Movie", ignoreCase = true) || title.length < 2) return@forEach
 
                 val img = card.selectFirst("img")
-                var poster = img?.attr("data-src")?.ifEmpty { img.attr("src") }
-                    ?: img?.attr("src")
+                var poster = img?.attr("data-src")?.takeIf { it.isNotBlank() }
+                    ?: img?.attr("data-original")?.takeIf { it.isNotBlank() }
+                    ?: img?.attr("src")?.takeIf { it.isNotBlank() && !it.contains("mlbd_load") }
                 if (poster != null && poster.isNotBlank() && !poster.startsWith("http")) {
                     poster = base + (if (poster.startsWith("/")) "" else "/") + poster
                 }
 
-                val isSeries = href.contains("/series/") || href.contains("/anime/")
+                val isSeries = href.contains("/series/") || href.contains("/anime/") || href.contains("/drama/") ||
+                        title.contains("Season", ignoreCase = true) || title.contains("Episode", ignoreCase = true) ||
+                        title.contains("Ep ", ignoreCase = true) || title.contains("Ep0", ignoreCase = true)
                 val cleanTitle = title.substringBefore("[").substringBefore("(").trim()
 
                 results.add(
@@ -207,29 +249,35 @@ class MovieLinkBDSource : StreamingSource {
 
         val seen = mutableSetOf<String>()
         doc.select(movieLinkPattern).forEach { a ->
-            var href = a.attr("href")
-            if (href.isBlank()) return@forEach
+            var href = a.attr("href").trim()
+            if (href.isBlank() || href.contains("/page/") || href.contains("/type/") ||
+                href.contains("/category/") || href.contains("/genre/") || href.contains("/language/")) return@forEach
+
             if (!href.startsWith("http")) {
                 href = base + (if (href.startsWith("/")) "" else "/") + href
             }
             if (!seen.add(href)) return@forEach
 
             val img = a.selectFirst("img")
-            var poster = img?.attr("data-src")?.ifEmpty { img.attr("src") }
-                ?: img?.attr("src")
+            var poster = img?.attr("data-src")?.takeIf { it.isNotBlank() }
+                ?: img?.attr("data-original")?.takeIf { it.isNotBlank() }
+                ?: img?.attr("src")?.takeIf { it.isNotBlank() && !it.contains("mlbd_load") }
             if (poster != null && poster.isNotEmpty() && !poster.startsWith("http")) {
                 poster = base + (if (poster.startsWith("/")) "" else "/") + poster
             }
 
-            val titleEl = a.parent()?.selectFirst(".title, .movie-title, h3, h2, [class*='name']")
+            val titleEl = a.parent()?.selectFirst(".content .title, a.title, .title, .movie-title, h3, h2, [class*='name']")
             val title = titleEl?.text()?.trim()?.takeIf { it.isNotEmpty() }
                 ?: a.attr("title")?.trim()?.takeIf { it.isNotEmpty() }
                 ?: a.text().trim().takeIf { it.isNotEmpty() }
+                ?: a.selectFirst("img")?.attr("alt")?.trim()?.takeIf { it.isNotEmpty() }
                 ?: return@forEach
 
-            if (title.length < 3) return@forEach
+            if (title.length < 3 || title.matches(Regex("""^\d+$"""))) return@forEach
 
-            val isSeries = href.contains("/series/") || href.contains("/anime/")
+            val isSeries = href.contains("/series/") || href.contains("/anime/") || href.contains("/drama/") ||
+                    title.contains("Season", ignoreCase = true) || title.contains("Episode", ignoreCase = true) ||
+                    title.contains("Ep ", ignoreCase = true)
             val cleanTitle = title.substringBefore("[").substringBefore("(").trim()
 
             results.add(
@@ -249,24 +297,23 @@ class MovieLinkBDSource : StreamingSource {
     override suspend fun getHomeCategories(): List<StreamingCategory> = withContext(Dispatchers.IO) {
         val base = getBase()
         val categoriesToFetch = listOf(
-            "$base/" to "Recently Updated",
+            "$base/" to "Recently Added",
             "$base/type/movies" to "All Movies",
-            "$base/type/series" to "All Web Series",
-            "$base/language/hindi" to "Hindi Movies",
+            "$base/type/series" to "Web Series",
             "$base/language/bangla" to "Bangla Movies",
             "$base/language/bangla-dubbed" to "Bangla Dubbed",
+            "$base/language/hindi" to "Hindi Movies",
             "$base/language/dual-audio" to "Dual Audio",
             "$base/language/english" to "English Movies",
             "$base/southIndian" to "South Indian Movies",
-            "$base/language/korean" to "Korean Movies/Drama",
-            "$base/anime" to "Anime Zone",
+            "$base/language/korean" to "Korean",
             "$base/drama" to "K/J/C Drama",
+            "$base/anime" to "Anime Zone",
             "$base/ongoing" to "Ongoing Series",
             "$base/genre/action" to "Action",
             "$base/genre/thriller" to "Thriller",
             "$base/genre/horror" to "Horror",
-            "$base/genre/romance" to "Romance",
-            "$base/category/wwe" to "WWE"
+            "$base/genre/romance" to "Romance"
         )
 
         val tasks = categoriesToFetch.map { (url, catTitle) ->
@@ -293,11 +340,15 @@ class MovieLinkBDSource : StreamingSource {
             categoryId
         } else {
             val cleanBase = categoryId.trimEnd('/')
-            if (cleanBase.contains("?search=")) {
+            if (cleanBase.contains("?q=")) {
+                "$cleanBase&page=$page"
+            } else if (cleanBase.contains("?search=")) {
                 val parts = cleanBase.split("?search=")
                 "${parts[0]}/page/$page/?search=${parts[1]}"
+            } else if (cleanBase.contains("?")) {
+                "$cleanBase&page=$page"
             } else {
-                "$cleanBase/page/$page/"
+                "$cleanBase/page/$page"
             }
         }
 
@@ -313,9 +364,22 @@ class MovieLinkBDSource : StreamingSource {
 
     override suspend fun search(query: String): List<StreamingItem> = withContext(Dispatchers.IO) {
         val base = getBase()
-        val url = "$base/?search=${URLEncoder.encode(query.trim(), "UTF-8")}"
+        val encoded = URLEncoder.encode(query.trim(), "UTF-8")
+        val primaryUrl = "$base/search?q=$encoded"
         try {
-            val html = executeGet(url)
+            val html = executeGet(primaryUrl)
+            val doc = Jsoup.parse(html, base)
+            val results = parseMovieCards(doc, base)
+            if (results.isNotEmpty()) {
+                return@withContext results
+            }
+        } catch (e: Exception) {
+            // Try fallback search URL
+        }
+
+        try {
+            val fallbackUrl = "$base/?search=$encoded"
+            val html = executeGet(fallbackUrl)
             val doc = Jsoup.parse(html, base)
             parseMovieCards(doc, base)
         } catch (e: Exception) {
@@ -369,20 +433,22 @@ class MovieLinkBDSource : StreamingSource {
                 plot?.let { append("\n$it") }
             }.trim()
 
-            val isSeries = targetUrl.contains("/series/") || targetUrl.contains("/anime/")
+            val isSeries = targetUrl.contains("/series/") || targetUrl.contains("/anime/") || targetUrl.contains("/drama/")
             val seasons = mutableListOf<StreamingSeason>()
 
             if (isSeries) {
                 val epCards = doc.select(".ep-card, [data-ep], div.card:has(h5:contains(Episode)), div.card:has(h4:contains(Episode))")
                 val episodes = mutableListOf<StreamingEpisode>()
+                val seenEpNums = mutableSetOf<Int>()
 
                 if (epCards.isNotEmpty()) {
                     epCards.forEach { card ->
+                        val dataEpNum = card.attr("data-episode-number").toIntOrNull()
                         val dataEp = card.attr("data-ep")
                         val hText = card.selectFirst("h5, h4, h3")?.text() ?: ""
                         val epNumMatch = Regex("""(?:Episode|Ep|E)[^\d]*(\d+)""", RegexOption.IGNORE_CASE).find("$dataEp $hText")
-                        val epNum = epNumMatch?.groupValues?.get(1)?.toIntOrNull()
-                        if (epNum != null) {
+                        val epNum = dataEpNum ?: epNumMatch?.groupValues?.get(1)?.toIntOrNull()
+                        if (epNum != null && seenEpNums.add(epNum)) {
                             episodes.add(
                                 StreamingEpisode(
                                     title = "Episode $epNum",
@@ -414,14 +480,16 @@ class MovieLinkBDSource : StreamingSource {
                             val end = epRange?.groupValues?.get(2)?.toIntOrNull() ?: start
 
                             for (epNum in start..end) {
-                                episodes.add(
-                                    StreamingEpisode(
-                                        title = "Episode $epNum",
-                                        streamUrl = "$targetUrl|ep$epNum",
-                                        overview = "Episode $epNum of $cleanTitle",
-                                        stillUrl = poster
+                                if (seenEpNums.add(epNum)) {
+                                    episodes.add(
+                                        StreamingEpisode(
+                                            title = "Episode $epNum",
+                                            streamUrl = "$targetUrl|ep$epNum",
+                                            overview = "Episode $epNum of $cleanTitle",
+                                            stillUrl = poster
+                                        )
                                     )
-                                )
+                                }
                                 epCounter = epNum + 1
                             }
                         }
@@ -429,7 +497,7 @@ class MovieLinkBDSource : StreamingSource {
                 }
 
                 if (episodes.isEmpty()) {
-                    val linkAnchors = doc.select("a[href*='/getLink/'], a[href*='/getWatch/']")
+                    val linkAnchors = doc.select("a[href*='/file/'], a[href*='/getLink/'], a[href*='/getWatch/']")
                     val count = if (linkAnchors.isNotEmpty()) linkAnchors.size else 1
                     for (epNum in 1..count) {
                         episodes.add(
@@ -443,10 +511,14 @@ class MovieLinkBDSource : StreamingSource {
                     }
                 }
 
+                val finalEpisodes = episodes.distinctBy { ep ->
+                    Regex("""\d+""").find(ep.title)?.value?.toIntOrNull() ?: ep.title
+                }
+
                 seasons.add(
                     StreamingSeason(
                         title = "Season 1",
-                        episodes = episodes,
+                        episodes = finalEpisodes,
                         seasonNumber = 1
                     )
                 )
@@ -486,15 +558,16 @@ class MovieLinkBDSource : StreamingSource {
             val html = executeGet(targetUrl)
             val doc = Jsoup.parse(html, targetUrl)
 
-            val isSeries = targetUrl.contains("/series/") || targetUrl.contains("/anime/")
+            val isSeries = targetUrl.contains("/series/") || targetUrl.contains("/anime/") || targetUrl.contains("/drama/")
 
             val linkAnchors = doc.select("a[href*='/getLink/']")
             val watchAnchors = doc.select("a[href*='/getWatch/']")
+            val fileAnchors = doc.select("a[href*='/file/']")
 
             val targetLinks = mutableListOf<Pair<String, String>>()
 
             if (!isSeries || epNum == null) {
-                (linkAnchors + watchAnchors).forEach { a ->
+                (fileAnchors + linkAnchors + watchAnchors).forEach { a ->
                     val href = a.attr("href").trim()
                     if (href.isNotEmpty()) {
                         val fullHref = if (href.startsWith("http")) href else "$base$href"
@@ -505,12 +578,13 @@ class MovieLinkBDSource : StreamingSource {
                 val epCards = doc.select(".ep-card, [data-ep], div.card:has(h5:contains(Episode)), div.card:has(h4:contains(Episode))")
                 if (epCards.isNotEmpty()) {
                     epCards.forEach { card ->
+                        val dataEpNum = card.attr("data-episode-number").toIntOrNull()
                         val dataEp = card.attr("data-ep")
                         val hText = card.selectFirst("h5, h4, h3")?.text() ?: ""
                         val match = Regex("""(?:Episode|Ep|E)[^\d]*(\d+)""", RegexOption.IGNORE_CASE).find("$dataEp $hText")
-                        val cardEpNum = match?.groupValues?.get(1)?.toIntOrNull()
+                        val cardEpNum = dataEpNum ?: match?.groupValues?.get(1)?.toIntOrNull()
                         if (cardEpNum == epNum) {
-                            card.select("a[href*='/getLink/'], a[href*='/getWatch/']").forEach { a ->
+                            card.select("a[href*='/file/'], a[href*='/getLink/'], a[href*='/getWatch/']").forEach { a ->
                                 val href = a.attr("href").trim()
                                 if (href.isNotEmpty()) {
                                     val fullHref = if (href.startsWith("http")) href else "$base$href"
@@ -538,7 +612,7 @@ class MovieLinkBDSource : StreamingSource {
                             if (epNum in start..end) {
                                 var sib = section.nextElementSibling()
                                 while (sib != null && !sib.tagName().matches(Regex("""h[1-6]""", RegexOption.IGNORE_CASE))) {
-                                    sib.select("a[href*='/getLink/'], a[href*='/getWatch/']").forEach { a ->
+                                    sib.select("a[href*='/file/'], a[href*='/getLink/'], a[href*='/getWatch/']").forEach { a ->
                                         val href = a.attr("href").trim()
                                         if (href.isNotEmpty()) {
                                             val fullHref = if (href.startsWith("http")) href else "$base$href"
@@ -554,7 +628,7 @@ class MovieLinkBDSource : StreamingSource {
 
                 // If episode sections didn't yield specific links, search all anchors for matching Ep text
                 if (targetLinks.isEmpty()) {
-                    (linkAnchors + watchAnchors).forEach { a ->
+                    (fileAnchors + linkAnchors + watchAnchors).forEach { a ->
                         val aText = a.text().trim()
                         val epMatch = Regex("""(?:Ep|Episode|E)[^\d]*(\d+)""", RegexOption.IGNORE_CASE).find(aText)
                         val num = epMatch?.groupValues?.get(1)?.toIntOrNull()
@@ -752,6 +826,72 @@ class MovieLinkBDSource : StreamingSource {
         try {
             val html = executeGet(fileUrl)
             val doc = Jsoup.parse(html, fileUrl)
+
+            val extractedSize = extractSizeFromText(label, doc.text())
+
+            val headersJson = com.google.gson.Gson().toJson(mapOf(
+                "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                "Referer" to "$base/"
+            ))
+
+            // 1. Check for modern MovieLinkBD GDL action buttons (FSL Fast CDN, Instant Cloud, XCloud)
+            val gdlActions = doc.select("a.gdl-action, a.fsl-download, a[data-host], a[data-btn]")
+            if (gdlActions.isNotEmpty()) {
+                val tempEntries = mutableListOf<Pair<String, String>>()
+                for (action in gdlActions) {
+                    val actHref = action.attr("href").trim()
+                    if (actHref.isBlank() || actHref.startsWith("javascript") ||
+                        actHref.contains("telegram") || actHref.contains("t.me") || actHref.contains("facebook")) continue
+
+                    val fullActUrl = if (actHref.startsWith("http")) actHref else "$base$actHref"
+                    val host = action.attr("data-host").lowercase()
+                    val isFsl = host == "fsl" || fullActUrl.contains("/file/") || action.hasClass("fsl-download")
+
+                    if (isFsl) {
+                        try {
+                            val fslHtml = executeGet(fullActUrl)
+                            val fslDoc = Jsoup.parse(fslHtml, fullActUrl)
+                            val fslDownload = fslDoc.selectFirst("a.fsl-download, a[data-host='fsl'], a[href*='cdn.'], a[href*='/d/']")
+                            val streamUrl = fslDownload?.attr("href")?.trim() ?: fullActUrl
+                            if (streamUrl.startsWith("http") && (streamUrl.contains("cdn.") || streamUrl.contains("/d/"))) {
+                                val finalSize = extractedSize ?: getUrlContentLength(streamUrl)
+                                val sizeAttr = if (finalSize != null) " | $finalSize" else ""
+                                val moniker = if (finalSize != null) "$qualityLabel - $finalSize" else qualityLabel
+                                val key = "[MovieLinkBD] [$moniker] FSL Fast CDN ($qualityLabel$sizeAttr | Direct Stream)"
+                                tempEntries.add(Pair(key, "$streamUrl######$headersJson"))
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    } else if (host == "instantcloud" || fullActUrl.contains("instantcloud.org")) {
+                        val instantDownload = if (fullActUrl.endsWith("/download")) fullActUrl else "$fullActUrl/download"
+                        val finalSize = extractedSize ?: getUrlContentLength(instantDownload)
+                        val sizeAttr = if (finalSize != null) " | $finalSize" else ""
+                        val moniker = if (finalSize != null) "$qualityLabel - $finalSize" else qualityLabel
+                        tempEntries.add(Pair("[MovieLinkBD] [$moniker] Instant Cloud ($qualityLabel$sizeAttr | Instant Cloud)", "$instantDownload######$headersJson"))
+                    } else if (host == "xcloud" || fullActUrl.contains("xcloud")) {
+                        val finalSize = extractedSize ?: getUrlContentLength(fullActUrl)
+                        val sizeAttr = if (finalSize != null) " | $finalSize" else ""
+                        val moniker = if (finalSize != null) "$qualityLabel - $finalSize" else qualityLabel
+                        tempEntries.add(Pair("[MovieLinkBD] [$moniker] XCloud ($qualityLabel$sizeAttr | XCloud)", "$fullActUrl######$headersJson"))
+                    }
+                }
+
+                if (tempEntries.isNotEmpty()) {
+                    tempEntries.sortByDescending { (k, _) ->
+                        when {
+                            k.contains("FSL Fast CDN") -> 3
+                            k.contains("Instant Cloud") -> 2
+                            k.contains("XCloud") -> 1
+                            else -> 0
+                        }
+                    }
+                    tempEntries.forEach { (k, v) -> results[k] = v }
+                    return
+                }
+            }
+
+            // 2. Legacy direct link elements
             val directLinkEl = doc.selectFirst("a:contains(Open Direct Download Link), a[href*='token=']")
             if (directLinkEl != null) {
                 val href = directLinkEl.attr("href").trim()
@@ -759,12 +899,7 @@ class MovieLinkBDSource : StreamingSource {
                 val directHtml = executeGet(directUrl)
                 val directDoc = Jsoup.parse(directHtml, directUrl)
 
-                val extractedSize = extractSizeFromText(label, doc.text(), directDoc.text())
-
-                val headersJson = com.google.gson.Gson().toJson(mapOf(
-                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                    "Referer" to "$base/"
-                ))
+                val legacyExtractedSize = extractSizeFromText(label, doc.text(), directDoc.text())
 
                 var count = 1
                 val tempEntries = mutableListOf<Pair<String, String>>()
@@ -782,7 +917,6 @@ class MovieLinkBDSource : StreamingSource {
                             if (resolved != null) {
                                 fullPlayUrl = resolved
                             } else {
-                                // Skip unresolvable HTML landing page URL
                                 return@forEach
                             }
                         }
@@ -794,7 +928,7 @@ class MovieLinkBDSource : StreamingSource {
                             else -> "Direct Link $count"
                         }
 
-                        val finalSize = extractedSize ?: getUrlContentLength(fullPlayUrl)
+                        val finalSize = legacyExtractedSize ?: getUrlContentLength(fullPlayUrl)
                         val sizeAttr = if (finalSize != null) " | $finalSize" else ""
                         val moniker = if (finalSize != null) "$qualityLabel - $finalSize" else qualityLabel
 
@@ -805,7 +939,6 @@ class MovieLinkBDSource : StreamingSource {
                     }
                 }
 
-                // Sort so Fast R2 Cloud and Instant Cloud direct CDN links are listed first
                 tempEntries.sortByDescending { (k, _) ->
                     when {
                         k.contains("Fast R2 Cloud") -> 3
@@ -820,10 +953,6 @@ class MovieLinkBDSource : StreamingSource {
                 val finalSize = extractSizeFromText(label, doc.text()) ?: getUrlContentLength(fileUrl)
                 val sizeAttr = if (finalSize != null) " | $finalSize" else ""
                 val moniker = if (finalSize != null) "$qualityLabel - $finalSize" else qualityLabel
-                val headersJson = com.google.gson.Gson().toJson(mapOf(
-                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                    "Referer" to "$base/"
-                ))
                 results["[MovieLinkBD] [$moniker] Direct Download ($qualityLabel$sizeAttr | Download Link)"] = "$fileUrl######$headersJson"
             }
         } catch (e: Exception) {

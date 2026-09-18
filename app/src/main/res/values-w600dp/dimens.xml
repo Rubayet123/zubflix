@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Wide Screen / Tablet / TV Constrained Dimensions -->
+    <dimen name="details_hero_max_width">600dp</dimen>
+    <dimen name="details_synopsis_max_width">600dp</dimen>
+    <dimen name="details_watch_btn_width">210dp</dimen>
+    <item name="details_watch_btn_weight" format="float" type="dimen">0.0</item>
+    <dimen name="details_action_btn_margin">14dp</dimen>
+</resources>

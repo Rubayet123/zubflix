@@ -57,13 +57,31 @@ class SearchActivity : AppCompatActivity() {
         }
 
         val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
-        isGlobalSearch = prefs.getBoolean("search_global_enabled", false)
+        isGlobalSearch = prefs.getBoolean("search_global_enabled", com.example.zubflix.util.SearchSettings.isGlobalSearchDefault(this))
 
         binding.btnBack.setOnClickListener { finish() }
         applyTvFocusAnimation(binding.btnBack)
         applyTvFocusAnimation(binding.btnSearchAction)
         applyTvFocusAnimation(binding.btnGlobalSearch)
         applyTvFocusAnimation(binding.btnClearSearch)
+        applyTvFocusAnimation(binding.btnClearHistory)
+
+        val dpadDownListener = View.OnKeyListener { _, keyCode, event ->
+            if (event.action == android.view.KeyEvent.ACTION_DOWN && keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN) {
+                if (binding.llSearchHistoryContainer.visibility == View.VISIBLE && binding.rvSearchHistory.childCount > 0) {
+                    binding.rvSearchHistory.getChildAt(0)?.requestFocus()
+                    return@OnKeyListener true
+                } else if (binding.rvSearchResults.childCount > 0) {
+                    binding.rvSearchResults.getChildAt(0)?.requestFocus()
+                    return@OnKeyListener true
+                }
+            }
+            false
+        }
+        binding.btnSearchAction.setOnKeyListener(dpadDownListener)
+        binding.btnGlobalSearch.setOnKeyListener(dpadDownListener)
+        binding.btnBack.setOnKeyListener(dpadDownListener)
+        binding.btnClearHistory.setOnKeyListener(dpadDownListener)
 
         setupRecyclerView()
         setupHistoryRecyclerView()
@@ -202,6 +220,30 @@ class SearchActivity : AppCompatActivity() {
             }
             override fun afterTextChanged(s: Editable?) {}
         })
+
+        // Focus change styling for TV Remote
+        binding.etSearch.setOnFocusChangeListener { _, hasFocus ->
+            binding.llUnifiedSearchPill.animate()
+                .scaleX(if (hasFocus) 1.02f else 1.0f)
+                .scaleY(if (hasFocus) 1.02f else 1.0f)
+                .translationZ(if (hasFocus) 6f else 0f)
+                .setDuration(150)
+                .start()
+        }
+
+        // D-Pad down navigation for TV remotes
+        binding.etSearch.setOnKeyListener { _, keyCode, event ->
+            if (event.action == android.view.KeyEvent.ACTION_DOWN && keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN) {
+                if (binding.llSearchHistoryContainer.visibility == View.VISIBLE && binding.rvSearchHistory.childCount > 0) {
+                    binding.rvSearchHistory.getChildAt(0)?.requestFocus()
+                    return@setOnKeyListener true
+                } else if (binding.rvSearchResults.childCount > 0) {
+                    binding.rvSearchResults.getChildAt(0)?.requestFocus()
+                    return@setOnKeyListener true
+                }
+            }
+            false
+        }
 
         // IME Search trigger
         binding.etSearch.setOnEditorActionListener { _, actionId, keyEvent ->

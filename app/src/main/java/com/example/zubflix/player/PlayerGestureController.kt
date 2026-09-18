@@ -10,6 +10,9 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import android.content.res.ColorStateList
+import androidx.core.content.ContextCompat
+import com.example.R
 import com.example.databinding.ActivityPlayerBinding
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -29,6 +32,7 @@ class PlayerGestureController(
     private val activity: Activity,
     private val binding: ActivityPlayerBinding,
     private val playerProvider: () -> ExoPlayer?,
+    private val audioEffectManager: AudioEffectManager? = null,
     private val timeFormatter: (Long) -> String
 ) {
     private val audioManager = activity.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -41,13 +45,20 @@ class PlayerGestureController(
     private var isScrubbing = false
     private var scrubStartPos = 0L
 
+    // 0.0f to 1.0f (0-100% system volume) and 1.0f to 2.0f (100-200% audio boost)
     private var currentVolumeFloat = 0.5f
     private var currentBrightnessFloat = 0.5f
     private var gestureOverlayJob: Job? = null
 
     init {
         val initialSysVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-        currentVolumeFloat = initialSysVolume.toFloat() / maxVolume.toFloat()
+        val initialBoostMb = audioEffectManager?.currentBoostMb ?: 0
+        if (initialBoostMb > 0) {
+            val boostFraction = initialBoostMb.toFloat() / com.example.zubflix.util.AudioSettings.BOOST_MAX.toFloat()
+            currentVolumeFloat = 1.0f + boostFraction
+        } else {
+            currentVolumeFloat = initialSysVolume.toFloat() / maxVolume.toFloat()
+        }
 
         val lp = activity.window.attributes
         currentBrightnessFloat = if (lp.screenBrightness < 0f) 0.5f else lp.screenBrightness
@@ -100,6 +111,19 @@ class PlayerGestureController(
                     isVolumeGesture = false
                     isBrightnessGesture = false
                     isScrubbing = false
+
+                    // Resync current volume with AudioManager and active DSP Boost
+                    val sysVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                    val activeBoostMb = audioEffectManager?.currentBoostMb ?: 0
+                    if (activeBoostMb > 0) {
+                        val boostFraction = activeBoostMb.toFloat() / com.example.zubflix.util.AudioSettings.BOOST_MAX.toFloat()
+                        currentVolumeFloat = 1.0f + boostFraction
+                    } else {
+                        currentVolumeFloat = sysVolume.toFloat() / maxVolume.toFloat()
+                    }
+
+                    val lp = activity.window.attributes
+                    currentBrightnessFloat = if (lp.screenBrightness < 0f) 0.5f else lp.screenBrightness
                 }
 
                 MotionEvent.ACTION_MOVE -> {
@@ -131,13 +155,24 @@ class PlayerGestureController(
                         }
 
                         if (isVolumeGesture) {
+                            val allowExtendedBoost = com.example.zubflix.util.AudioSettings.isGestureExtendedBoostEnabled(activity)
+                            val maxAllowedVolume = if (allowExtendedBoost && audioEffectManager != null) 2.0f else 1.0f
                             val volumeChange = (deltaY / screenHeight) * 1.2f
-                            currentVolumeFloat = (currentVolumeFloat + volumeChange).coerceIn(0f, 1.0f)
+                            currentVolumeFloat = (currentVolumeFloat + volumeChange).coerceIn(0f, maxAllowedVolume)
 
-                            playerProvider()?.volume = currentVolumeFloat
-
-                            val targetSysVolume = (currentVolumeFloat * maxVolume).toInt()
-                            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetSysVolume, 0)
+                            if (currentVolumeFloat <= 1.0f) {
+                                // Standard System Volume (0% - 100%)
+                                playerProvider()?.volume = 1.0f
+                                audioEffectManager?.applyBoost(0)
+                                val targetSysVolume = (currentVolumeFloat * maxVolume).toInt()
+                                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetSysVolume, 0)
+                            } else {
+                                // Extended Audio Boost (100% - 200%) via DSP LoudnessEnhancer
+                                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxVolume, 0)
+                                playerProvider()?.volume = 1.0f
+                                val boostPercent = (currentVolumeFloat * 100).toInt()
+                                audioEffectManager?.setBoostFromPercentage(boostPercent)
+                            }
 
                             showVolumeOverlay(currentVolumeFloat, lifecycleOwner)
                         } else if (isBrightnessGesture) {
@@ -172,9 +207,29 @@ class PlayerGestureController(
 
     private fun showVolumeOverlay(volumeFloat: Float, lifecycleOwner: LifecycleOwner) {
         binding.volumeSliderContainer.visibility = View.VISIBLE
-        val progressPercent = (volumeFloat * 100).toInt()
-        binding.volumeSlider.progress = progressPercent
-        binding.volumePercentage.text = "$progressPercent%"
+        val totalPercent = (volumeFloat * 100).toInt()
+        
+        binding.volumeSlider.max = 100
+        if (totalPercent > 100) {
+            // Phase 2: Audio Boost (101% - 200%)
+            // Progress represents the boost depth from 0% to 100% over the full bar
+            val boostProgress = (totalPercent - 100).coerceIn(1, 100)
+            binding.volumeSlider.progressDrawable = ContextCompat.getDrawable(activity, R.drawable.vertical_progress_boost)
+            binding.volumeSlider.progress = boostProgress
+            
+            binding.volumeIcon.imageTintList = ColorStateList.valueOf(android.graphics.Color.parseColor("#FF9800"))
+            binding.volumePercentage.text = "BOOST\n$totalPercent%"
+            binding.volumePercentage.setTextColor(android.graphics.Color.parseColor("#FF9800"))
+        } else {
+            // Phase 1: Normal System Volume (0% - 100%)
+            // Full bar height represents 0% to 100% system volume
+            binding.volumeSlider.progressDrawable = ContextCompat.getDrawable(activity, R.drawable.vertical_progress_red)
+            binding.volumeSlider.progress = totalPercent.coerceIn(0, 100)
+            
+            binding.volumeIcon.imageTintList = ColorStateList.valueOf(android.graphics.Color.WHITE)
+            binding.volumePercentage.text = "$totalPercent%"
+            binding.volumePercentage.setTextColor(android.graphics.Color.WHITE)
+        }
         resetGestureOverlayTimer(lifecycleOwner)
     }
 
@@ -195,11 +250,14 @@ class PlayerGestureController(
         }
     }
 
+    private var indicatorJob: Job? = null
+
     fun showDoubleTapIndicator(text: String, lifecycleOwner: LifecycleOwner) {
         binding.centralFeedbackContainer.visibility = View.VISIBLE
         binding.tvCentralFeedback.text = text
-        lifecycleOwner.lifecycleScope.launch {
-            delay(1000)
+        indicatorJob?.cancel()
+        indicatorJob = lifecycleOwner.lifecycleScope.launch {
+            delay(1200)
             binding.centralFeedbackContainer.visibility = View.GONE
         }
     }

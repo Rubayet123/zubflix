@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0D0D0D">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/app_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#141414"
+        app:elevation="0dp">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:navigationIcon="@drawable/ic_arrow_back"
+            app:titleTextColor="#FFFFFF" />
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scroll_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="40dp">
+
+            <!-- Profile Header Card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingHorizontal="16dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="12dp"
+                android:gravity="center_vertical">
+
+                <!-- Avatar Card with Ring -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_avatar"
+                    android:layout_width="88dp"
+                    android:layout_height="88dp"
+                    app:cardCornerRadius="44dp"
+                    app:cardElevation="2dp"
+                    app:cardBackgroundColor="#22222A">
+
+                    <ImageView
+                        android:id="@+id/img_profile"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/ic_avatar_placeholder" />
+
+                </androidx.cardview.widget.CardView>
+
+                <!-- Basic Details -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tv_name"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="#FFFFFF"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:text="Actor Name" />
+
+                    <TextView
+                        android:id="@+id/tv_department_origin"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:textColor="#B0B0B0"
+                        android:textSize="12.5sp"
+                        android:text="Acting" />
+
+                    <TextView
+                        android:id="@+id/tv_birth_info"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textColor="#808080"
+                        android:textSize="11.5sp"
+                        android:visibility="gone"
+                        android:text="Born: May 25, 1976" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- Biography Section -->
+            <LinearLayout
+                android:id="@+id/bio_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="16dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="12dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tv_biography"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#D1D5DB"
+                    android:textSize="12.5sp"
+                    android:lineSpacingMultiplier="1.2"
+                    android:maxLines="3"
+                    android:ellipsize="end"
+                    android:text="" />
+
+                <TextView
+                    android:id="@+id/tv_bio_toggle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="#E50914"
+                    android:textSize="11.5sp"
+                    android:textStyle="bold"
+                    android:text="Read More ▼" />
+
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginVertical="8dp"
+                android:background="#222222" />
+
+            <!-- Filmography Header & Count -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingHorizontal="16dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="#FFFFFF"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:text="Filmography" />
+
+                <TextView
+                    android:id="@+id/tv_credits_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#888888"
+                    android:textSize="12sp"
+                    android:text="0 Titles" />
+
+            </LinearLayout>
+
+            <!-- Filter & Sort Chips -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:scrollbars="none"
+                android:paddingHorizontal="16dp">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <!-- Filter Types -->
+                    <TextView
+                        android:id="@+id/btn_filter_all"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_chip_selected"
+                        android:paddingHorizontal="13dp"
+                        android:paddingVertical="7dp"
+                        android:text="All"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:focusable="true"
+                        android:clickable="true" />
+
+                    <TextView
+                        android:id="@+id/btn_filter_movies"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/bg_chip_unselected"
+                        android:paddingHorizontal="13dp"
+                        android:paddingVertical="7dp"
+                        android:text="Movies"
+                        android:textColor="#B0B0B0"
+                        android:textSize="12sp"
+                        android:focusable="true"
+                        android:clickable="true" />
+
+                    <TextView
+                        android:id="@+id/btn_filter_series"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/bg_chip_unselected"
+                        android:paddingHorizontal="13dp"
+                        android:paddingVertical="7dp"
+                        android:text="TV Shows"
+                        android:textColor="#B0B0B0"
+                        android:textSize="12sp"
+                        android:focusable="true"
+                        android:clickable="true" />
+
+                    <!-- Divider -->
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="22dp"
+                        android:layout_marginHorizontal="10dp"
+                        android:background="#333333" />
+
+                    <!-- Sort Options -->
+                    <TextView
+                        android:id="@+id/btn_sort_latest"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_chip_selected"
+                        android:paddingHorizontal="13dp"
+                        android:paddingVertical="7dp"
+                        android:text="📅 Latest"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:focusable="true"
+                        android:clickable="true" />
+
+                    <TextView
+                        android:id="@+id/btn_sort_popular"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/bg_chip_unselected"
+                        android:paddingHorizontal="13dp"
+                        android:paddingVertical="7dp"
+                        android:text="🔥 Popular"
+                        android:textColor="#B0B0B0"
+                        android:textSize="12sp"
+                        android:focusable="true"
+                        android:clickable="true" />
+
+                </LinearLayout>
+
+            </HorizontalScrollView>
+
+            <!-- Filmography Grid -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_filmography"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:paddingHorizontal="12dp"
+                android:nestedScrollingEnabled="false"
+                android:clipToPadding="false" />
+
+            <!-- Empty State -->
+            <TextView
+                android:id="@+id/tv_empty_state"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="40dp"
+                android:gravity="center"
+                android:text="No filmography found."
+                android:textColor="#666666"
+                android:textSize="14sp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- Center Loading Indicator -->
+    <ProgressBar
+        android:id="@+id/loading_progress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:indeterminateTint="#E50914"
+        android:visibility="visible" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

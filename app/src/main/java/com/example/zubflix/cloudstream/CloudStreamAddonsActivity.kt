@@ -544,12 +544,12 @@ class CloudStreamAddonsActivity : AppCompatActivity() {
 
     private fun showInstallCustomCs3Dialog() {
         val input = EditText(this)
-        input.hint = "http://127.0.0.1:8080/manifest.json or https://.../manifest.json"
+        input.hint = "https://cncverse-bridge.hayd.uk/manifest.json or https://.../manifest.json"
         input.setPadding(32, 24, 32, 24)
 
         MaterialAlertDialogBuilder(this)
             .setTitle("Add CNCVerse Bridge / Stream Addon")
-            .setMessage("Paste CNCVerse Bridge or Stremio manifest URL (e.g., http://127.0.0.1:8080/manifest.json):")
+            .setMessage("Paste CNCVerse Bridge or Stremio manifest URL (e.g., https://cncverse-bridge.hayd.uk/manifest.json):")
             .setView(input)
             .setPositiveButton("Add Addon") { _, _ ->
                 val rawUrl = input.text.toString().trim()

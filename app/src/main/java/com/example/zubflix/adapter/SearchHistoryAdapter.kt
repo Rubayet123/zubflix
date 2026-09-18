@@ -37,6 +37,28 @@ class SearchHistoryAdapter(
     inner class HistoryViewHolder(private val binding: ItemSearchHistoryBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
+        init {
+            binding.root.isFocusable = true
+            binding.root.setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    v.animate().scaleX(1.02f).scaleY(1.02f).translationZ(6f).setDuration(150).start()
+                } else {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).translationZ(0f).setDuration(120).start()
+                }
+            }
+
+            binding.btnDeleteHistory.isFocusable = true
+            binding.btnDeleteHistory.setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    v.animate().scaleX(1.2f).scaleY(1.2f).setDuration(150).start()
+                    binding.btnDeleteHistory.setColorFilter(android.graphics.Color.parseColor("#E50914"))
+                } else {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
+                    binding.btnDeleteHistory.setColorFilter(android.graphics.Color.parseColor("#8B949E"))
+                }
+            }
+        }
+
         fun bind(entity: SearchHistoryEntity) {
             binding.tvSearchQuery.text = entity.query
             binding.root.setOnClickListener {

@@ -21,13 +21,17 @@ internal object CastleTvScraper : LocalScraper {
             if (searchItems.isEmpty()) return emptyList()
 
             val isSeries = (type == "series" || type == "tv")
-            val matchedItem = searchItems.firstOrNull { item ->
-                item.isSeries == isSeries && BDIXUtils.titlesMatch(item.title, query)
-            } ?: searchItems.firstOrNull { item ->
-                item.isSeries == isSeries
-            } ?: searchItems.firstOrNull { item ->
-                BDIXUtils.titlesMatch(item.title, query)
-            } ?: searchItems.first()
+            // Rank candidates by match quality: exact series match with highest title match score
+            val matchedItem = searchItems
+                .map { item -> item to BDIXUtils.titleMatchScore(item.title, query) }
+                .filter { (item, score) ->
+                    score >= 0.70 && (!isSeries || item.isSeries)
+                }
+                .maxByOrNull { (item, score) ->
+                    var rank = score
+                    if (item.isSeries == isSeries) rank += 1.0
+                    rank
+                }?.first ?: return emptyList()
 
             val details = delegateSource.getDetails(matchedItem.id) ?: return emptyList()
 
@@ -39,11 +43,20 @@ internal object CastleTvScraper : LocalScraper {
 
                 if (matchedSeason == null) return emptyList()
 
-                val matchedEp = matchedSeason.episodes.find {
-                    it.title.contains("Episode $eNum", ignoreCase = true) || it.title.contains("E$eNum", ignoreCase = true)
-                } ?: matchedSeason.episodes.getOrNull((eNum - 1).coerceAtLeast(0))
+                val matchedEp = matchedSeason.episodes.find { ep ->
+                    val epNumFromTitle = Regex("(?i)\\b(?:Episode|Ep|E)\\s*0*(\\d+)\\b").find(ep.title)?.groupValues?.get(1)?.toIntOrNull()
+                    epNumFromTitle == eNum || ep.title.equals("Episode $eNum", ignoreCase = true)
+                } ?: if (eNum > 0 && eNum <= matchedSeason.episodes.size) {
+                    val candidate = matchedSeason.episodes[eNum - 1]
+                    val candEpNum = Regex("(?i)\\b(?:Episode|Ep|E)\\s*0*(\\d+)\\b").find(candidate.title)?.groupValues?.get(1)?.toIntOrNull()
+                    if (candEpNum == null || candEpNum == eNum) candidate else null
+                } else null
 
-                matchedEp?.streamUrl ?: details.streamUrl ?: matchedItem.id
+                if (matchedEp == null || matchedEp.streamUrl.isNullOrBlank()) {
+                    return emptyList()
+                }
+
+                matchedEp.streamUrl
             } else {
                 details.streamUrl ?: matchedItem.id
             }

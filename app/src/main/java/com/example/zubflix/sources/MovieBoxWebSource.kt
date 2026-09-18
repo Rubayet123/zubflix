@@ -609,6 +609,21 @@ class MovieBoxWebSource : StreamingSource {
             } catch (e: Exception) {}
         }
 
+        if (subjectId.contains("|")) {
+            val parts = subjectId.split("|")
+            subjectId = parts.getOrNull(0) ?: ""
+            if (detailPath.isBlank() || detailPath.contains("|")) {
+                detailPath = parts.getOrNull(1) ?: ""
+            }
+        }
+        if (detailPath.contains("|")) {
+            val parts = detailPath.split("|")
+            if (subjectId.isBlank() || !subjectId.all { it.isDigit() }) {
+                subjectId = parts.getOrNull(0) ?: ""
+            }
+            detailPath = parts.getOrNull(1) ?: ""
+        }
+
         if (subjectId.isBlank() && detailPath.isBlank()) {
             val parts = data.split("|")
             subjectId = parts.getOrNull(0) ?: ""
@@ -619,6 +634,7 @@ class MovieBoxWebSource : StreamingSource {
 
         if (detailPath.isBlank() && subjectId.isNotBlank() && !subjectId.all { it.isDigit() }) {
             detailPath = subjectId
+            subjectId = ""
         }
 
         if (subjectId.isBlank() && detailPath.isNotBlank()) {
@@ -636,6 +652,14 @@ class MovieBoxWebSource : StreamingSource {
             } catch (e: Exception) {}
         }
 
+        // Final sanitation: subjectId must be strictly numeric for Go backend
+        if (subjectId.isNotBlank() && !subjectId.all { it.isDigit() }) {
+            val digitsOnly = subjectId.filter { it.isDigit() }
+            if (digitsOnly.length >= 10) {
+                subjectId = digitsOnly
+            }
+        }
+
         val dynamicBaseUrl = getMovieBoxBaseUrl()
         val baseUrls = listOf(
             dynamicBaseUrl,
@@ -648,9 +672,8 @@ class MovieBoxWebSource : StreamingSource {
         val cleanDetailPath = detailPath.removePrefix("/").removePrefix("movies/").removePrefix("movie/")
         val detailPathCandidates = listOf(
             cleanDetailPath,
-            detailPath,
-            subjectId
-        ).distinct().filter { it.isNotBlank() }
+            detailPath
+        ).distinct().filter { it.isNotBlank() && !it.all { ch -> ch.isDigit() } }
 
         val results = mutableMapOf<String, String>()
 
@@ -734,9 +757,12 @@ class MovieBoxWebSource : StreamingSource {
                             val source = availableSources[i]
                             val rawUrl = source.optString("url")
                             val streamId = source.optString("id")
+                            val signCookie = source.optString("signCookie")
                             val format = source.optString("format", "")
                             val resolutions = source.optString("resolutions", "")
                             val quality = getQuality(resolutions) ?: source.optString("quality", "HD")
+
+                            val playableUrl = rawUrl
                             val streamType = getStreamType(format)
 
                             val subUrl = getCaptions(
@@ -749,18 +775,21 @@ class MovieBoxWebSource : StreamingSource {
                                 requestHeaders
                             )
 
-                            val playerHeadersMap = mapOf(
+                            val playerHeadersMap = mutableMapOf(
                                 "Referer" to referer,
                                 "Origin" to baseUrl,
                                 "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
                                 "x-client-info" to """{"timezone":"Asia/Colombo"}"""
                             )
+                            if (signCookie.isNotBlank()) {
+                                playerHeadersMap["Cookie"] = signCookie
+                            }
                             val headersJson = com.google.gson.Gson().toJson(playerHeadersMap)
 
                             val finalStreamUrl = if (subUrl.isNotBlank() || headersJson.isNotBlank()) {
-                                "$rawUrl###$subUrl###$headersJson"
+                                "$playableUrl###$subUrl###$headersJson"
                             } else {
-                                rawUrl
+                                playableUrl
                             }
 
                             val serverLabel = "[MovieBox] [$quality] ($streamType) Server ${i + 1}"
@@ -786,5 +815,38 @@ class MovieBoxWebSource : StreamingSource {
         val map = mutableMapOf<String, String>()
         extractVideoLinksStreaming(data, onStreamFound = { map.putAll(it) })
         map
+    }
+
+    private fun resolveDashManifestFromPolicy(signCookie: String): String? {
+        if (signCookie.isBlank()) return null
+        for (part in signCookie.split(";")) {
+            val trimmed = part.trim()
+            if (trimmed.startsWith("CloudFront-Policy=")) {
+                val raw = trimmed.substring("CloudFront-Policy=".length).trim()
+                val norm = raw.replace("-", "+").replace("_", "/").replace("~", "/")
+                val padded = norm + "=".repeat((4 - norm.length % 4) % 4)
+                try {
+                    val bytes = try {
+                        android.util.Base64.decode(padded, android.util.Base64.URL_SAFE)
+                    } catch (_: Exception) {
+                        android.util.Base64.decode(padded, android.util.Base64.DEFAULT)
+                    }
+                    val decoded = String(bytes, Charsets.UTF_8)
+                    val json = JSONObject(decoded)
+                    val stmtArr = json.optJSONArray("Statement")
+                    val stmt = stmtArr?.optJSONObject(0)
+                    val resource = stmt?.optString("Resource") ?: ""
+                    var baseResource = resource.trimEnd('*', '/')
+                    if (baseResource.isNotBlank() && baseResource.startsWith("http")) {
+                        if (baseResource.endsWith(".mpd")) return baseResource
+                        if (baseResource.contains(".")) {
+                            baseResource = baseResource.substringBeforeLast("/")
+                        }
+                        return "$baseResource/index.mpd"
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+        return null
     }
 }

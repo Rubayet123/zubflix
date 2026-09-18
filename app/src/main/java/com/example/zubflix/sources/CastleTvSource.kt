@@ -8,6 +8,7 @@ import com.example.zubflix.model.StreamingItem
 import com.example.zubflix.model.StreamingSeason
 import com.example.zubflix.model.StreamingSource
 import com.google.gson.Gson
+import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,6 +29,7 @@ import javax.crypto.spec.SecretKeySpec
 
 class CastleTvSource : StreamingSource {
     override val name: String = "Castle TV 🏰"
+    override val hasBackdropSupport: Boolean = true
 
     companion object {
         private const val TAG = "CastleTvSource"
@@ -686,7 +688,7 @@ class CastleTvSource : StreamingSource {
                 val episodes = if (dataObj.has("episodes") && dataObj.get("episodes").isJsonArray) dataObj.getAsJsonArray("episodes") else null
 
                 if (episodes != null && episodes.size() > 0) {
-                    var foundEpObj = episodes[0].asJsonObject
+                    var foundEpObj: JsonObject? = null
                     if (episodeId.isNotEmpty()) {
                         for (i in 0 until episodes.size()) {
                             val ep = episodes[i].asJsonObject
@@ -695,8 +697,16 @@ class CastleTvSource : StreamingSource {
                                 break
                             }
                         }
-                    } else if (foundEpObj.has("id") && !foundEpObj.get("id").isJsonNull) {
-                        episodeId = foundEpObj.get("id").asString
+                    } else {
+                        foundEpObj = episodes[0].asJsonObject
+                        if (foundEpObj.has("id") && !foundEpObj.get("id").isJsonNull) {
+                            episodeId = foundEpObj.get("id").asString
+                        }
+                    }
+
+                    if (foundEpObj == null) {
+                        Log.w(TAG, "Requested episodeId '$episodeId' not found in CastleTV episodes list")
+                        return@withContext emptyMap()
                     }
 
                     // Extract tracks

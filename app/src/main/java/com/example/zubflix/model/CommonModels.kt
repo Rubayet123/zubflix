@@ -56,6 +56,7 @@ data class StreamingCategory(
 
 interface StreamingSource {
     val name: String
+    val hasBackdropSupport: Boolean get() = false
     suspend fun getHomeCategories(): List<StreamingCategory>
     suspend fun search(query: String): List<StreamingItem>
     suspend fun getDetails(id: String): StreamingItem?

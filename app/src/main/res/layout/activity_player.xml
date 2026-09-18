@@ -87,6 +87,7 @@
         app:layout_constraintBottom_toBottomOf="parent">
 
         <ImageView
+            android:id="@+id/volumeIcon"
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:src="@drawable/ic_volume_speaker"
@@ -323,7 +324,7 @@
     <!-- Netflix-Style Audio & Subtitles Right Sidebar -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/sidebarContainer"
-        android:layout_width="380dp"
+        android:layout_width="420dp"
         android:layout_height="match_parent"
         android:background="#F0141414"
         android:elevation="12dp"
@@ -381,7 +382,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="AUDIO"
+                    android:text="AUDIO TRACKS"
                     android:textColor="#99FFFFFF"
                     android:textSize="12sp"
                     android:textStyle="bold"
@@ -504,20 +505,15 @@
         </HorizontalScrollView>
 
         <!-- Sources List -->
-        <androidx.core.widget.NestedScrollView
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvSourceStreams"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_marginTop="10dp"
             android:paddingHorizontal="12dp"
+            android:clipToPadding="false"
             app:layout_constraintTop_toBottomOf="@id/scroll_source_sidebar_filter_tabs"
-            app:layout_constraintBottom_toBottomOf="parent">
-
-            <LinearLayout
-                android:id="@+id/sourcesContainer"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"/>
-        </androidx.core.widget.NestedScrollView>
+            app:layout_constraintBottom_toBottomOf="parent"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

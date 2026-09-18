@@ -91,17 +91,31 @@
         <item name="colorPrimary">#E50914</item>
         <item name="colorPrimaryDark">#0B0C0F</item>
         <item name="colorAccent">#E50914</item>
-        <item name="android:windowBackground">#0B0C0F</item>
+        <item name="android:windowBackground">@drawable/bg_tv_splash</item>
         <item name="defaultBrandColor">#E50914</item>
         <item name="defaultSearchColor">#E50914</item>
+        <item name="rowHeaderStyle">@style/CustomLeanbackRowHeader</item>
+        <item name="rowHeaderDescriptionStyle">@style/CustomLeanbackRowHeader</item>
+    </style>
+
+    <style name="CustomLeanbackRowHeader" parent="Widget.Leanback.Row.Header">
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">14.5sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:paddingStart">14dp</item>
+        <item name="android:paddingEnd">14dp</item>
+        <item name="android:paddingBottom">2dp</item>
     </style>
 
     <style name="Theme.Zubflix.Tv.Browse" parent="Theme.Leanback.Browse">
         <item name="colorPrimary">#E50914</item>
         <item name="colorPrimaryDark">#0B0C0F</item>
         <item name="colorAccent">#E50914</item>
-        <item name="android:windowBackground">#0B0C0F</item>
+        <item name="android:windowBackground">@drawable/bg_tv_splash</item>
         <item name="defaultBrandColor">#E50914</item>
         <item name="defaultSearchColor">#E50914</item>
+        <item name="rowHeaderStyle">@style/CustomLeanbackRowHeader</item>
+        <item name="rowHeaderDescriptionStyle">@style/CustomLeanbackRowHeader</item>
     </style>
 </resources>

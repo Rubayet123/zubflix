@@ -16,6 +16,7 @@ class CachedSource(
 ) : StreamingSource {
 
     override val name: String get() = source.name
+    override val hasBackdropSupport: Boolean get() = source.hasBackdropSupport
 
     private var cachedHomeCategories: List<StreamingCategory>? = null
     private var lastCacheTime: Long = 0
@@ -128,6 +129,10 @@ class CachedSource(
         } else if (src is MovieLinkBDSource) {
             src.extractVideoLinksStreaming(data, onProgress, onStreamFound)
         } else if (src is MovieBoxWebSource) {
+            src.extractVideoLinksStreaming(data, onProgress, onStreamFound)
+        } else if (src is MovieBoxAppSource) {
+            src.extractVideoLinksStreaming(data, onProgress, onStreamFound)
+        } else if (src is MovieBoxINSource) {
             src.extractVideoLinksStreaming(data, onProgress, onStreamFound)
         } else if (src is CtgMoviesSource) {
             src.extractVideoLinksStreaming(data, onProgress, onStreamFound)

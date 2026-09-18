@@ -171,28 +171,17 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- Shimmer Skeleton Loading View -->
-    <include
-        android:id="@+id/shimmer_grid_container"
-        layout="@layout/layout_shimmer_grid"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@id/filter_scroll_view"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
     <ProgressBar
         android:id="@+id/loading_progress"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:indeterminateTint="#E50914"/>
+        android:indeterminateTint="#E50914"
+        android:elevation="10dp"/>
 
     <TextView
         android:id="@+id/empty_state_text"

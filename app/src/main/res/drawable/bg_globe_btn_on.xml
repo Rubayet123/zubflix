@@ -1,6 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ripple xmlns:android="http://schemas.android.com/apk/res/android"
-    android:color="#40FFFFFF">
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <shape android:shape="oval">
+            <gradient
+                android:startColor="#FF2E36"
+                android:endColor="#D10813"
+                android:angle="45" />
+            <stroke
+                android:width="2.5dp"
+                android:color="#FFFFFF" />
+        </shape>
+    </item>
+    <item android:state_pressed="true">
+        <shape android:shape="oval">
+            <gradient
+                android:startColor="#B20710"
+                android:endColor="#80050B"
+                android:angle="45" />
+            <stroke
+                android:width="2dp"
+                android:color="#FFFFFF" />
+        </shape>
+    </item>
     <item>
         <shape android:shape="oval">
             <gradient
@@ -12,4 +33,4 @@
                 android:color="#FF4D4D" />
         </shape>
     </item>
-</ripple>
+</selector>

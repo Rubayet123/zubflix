@@ -25,9 +25,13 @@ internal object MovieBoxScraper : LocalScraper {
                 BDIXUtils.titlesMatch(item.title, query)
             } ?: return emptyList()
 
+            val idParts = matchedItem.id.split("|")
+            val cleanSubjectId = idParts.getOrNull(0) ?: matchedItem.id
+            val cleanDetailPath = idParts.getOrNull(1) ?: if (!matchedItem.id.all { it.isDigit() }) matchedItem.id else ""
+
             val dataString = org.json.JSONObject().apply {
-                put("subjectId", matchedItem.id)
-                put("detailPath", matchedItem.id)
+                put("subjectId", cleanSubjectId)
+                put("detailPath", cleanDetailPath)
                 if (type == "series" || type == "tv") {
                     put("season", season ?: 1)
                     put("episode", episode ?: 1)

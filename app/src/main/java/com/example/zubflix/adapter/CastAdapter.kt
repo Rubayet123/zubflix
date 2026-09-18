@@ -12,7 +12,8 @@ import com.example.R
 import com.example.zubflix.utils.TmdbHelper
 
 class CastAdapter(
-    private val castList: List<TmdbHelper.CastMember>
+    private val castList: List<TmdbHelper.CastMember>,
+    private val onCastMemberClick: ((TmdbHelper.CastMember) -> Unit)? = null
 ) : RecyclerView.Adapter<CastAdapter.ViewHolder>() {
 
     class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -41,6 +42,10 @@ class CastAdapter(
                 .into(holder.imgAvatar)
         } else {
             holder.imgAvatar.setImageResource(R.drawable.ic_avatar_placeholder)
+        }
+
+        holder.itemView.setOnClickListener {
+            onCastMemberClick?.invoke(member)
         }
 
         setupTVFocus(holder.itemView)

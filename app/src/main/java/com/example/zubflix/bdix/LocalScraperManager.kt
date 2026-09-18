@@ -10,6 +10,8 @@ object LocalScraperManager {
 
     // Default registered scrapers list
     private val ALL_SCRAPERS: List<LocalScraper> = listOf(
+        MovieBoxINScraper,
+        MovieBoxAppScraper,
         CtgMoviesScraper,
         MovieLinkBDScraper,
         MovieBoxScraper,

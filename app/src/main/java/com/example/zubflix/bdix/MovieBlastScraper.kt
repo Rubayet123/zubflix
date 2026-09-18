@@ -25,10 +25,8 @@ internal class MovieBlastScraper(context: Context? = null) : LocalScraper {
             val matchedItem = searchItems.firstOrNull { item ->
                 item.isSeries == isSeries && BDIXUtils.titlesMatch(item.title, query)
             } ?: searchItems.firstOrNull { item ->
-                item.isSeries == isSeries
-            } ?: searchItems.firstOrNull { item ->
-                BDIXUtils.titlesMatch(item.title, query)
-            } ?: searchItems.first()
+                (!isSeries || item.isSeries) && BDIXUtils.titlesMatch(item.title, query)
+            } ?: return emptyList()
 
             val details = delegateSource.getDetails(matchedItem.id) ?: return emptyList()
 
@@ -40,11 +38,26 @@ internal class MovieBlastScraper(context: Context? = null) : LocalScraper {
 
                 if (matchedSeason == null) return emptyList()
 
-                val matchedEp = matchedSeason.episodes.find {
-                    it.title.contains("Episode $eNum", ignoreCase = true) || it.title.contains("E$eNum", ignoreCase = true)
-                } ?: matchedSeason.episodes.getOrNull((eNum - 1).coerceAtLeast(0))
+                val matchedEp = matchedSeason.episodes.find { ep ->
+                    val epNumFromTitle = Regex("(?i)\\b(?:Episode|Ep|E)\\s*0*(\\d+)\\b").find(ep.title)?.groupValues?.get(1)?.toIntOrNull()
+                    val epNumFromPayload = if (ep.streamUrl != null && ep.streamUrl.contains("\"episode\":")) {
+                        Regex("\"episode\"\\s*:\\s*(\\d+)").find(ep.streamUrl)?.groupValues?.get(1)?.toIntOrNull()
+                    } else null
+                    epNumFromTitle == eNum || epNumFromPayload == eNum || ep.title.equals("Episode $eNum", ignoreCase = true)
+                } ?: if (eNum > 0 && eNum <= matchedSeason.episodes.size) {
+                    val candidate = matchedSeason.episodes[eNum - 1]
+                    val candEpNum = Regex("(?i)\\b(?:Episode|Ep|E)\\s*0*(\\d+)\\b").find(candidate.title)?.groupValues?.get(1)?.toIntOrNull()
+                    val candPayloadNum = if (candidate.streamUrl != null && candidate.streamUrl.contains("\"episode\":")) {
+                        Regex("\"episode\"\\s*:\\s*(\\d+)").find(candidate.streamUrl)?.groupValues?.get(1)?.toIntOrNull()
+                    } else null
+                    if ((candEpNum == null || candEpNum == eNum) && (candPayloadNum == null || candPayloadNum == eNum)) candidate else null
+                } else null
 
-                matchedEp?.streamUrl ?: details.streamUrl ?: matchedItem.id
+                if (matchedEp == null || matchedEp.streamUrl.isNullOrBlank()) {
+                    return emptyList()
+                }
+
+                matchedEp.streamUrl
             } else {
                 details.streamUrl ?: matchedItem.id
             }

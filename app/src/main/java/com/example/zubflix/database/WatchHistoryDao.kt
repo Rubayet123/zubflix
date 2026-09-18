@@ -16,6 +16,9 @@ interface WatchHistoryDao {
     
     @Query("SELECT * FROM watch_history ORDER BY lastWatchedTimestamp DESC LIMIT :limit")
     suspend fun getRecentlyWatchedOnce(limit: Int = 20): List<WatchHistoryEntity>
+
+    @Query("SELECT * FROM watch_history WHERE itemId = :itemId LIMIT 1")
+    suspend fun getWatchHistoryById(itemId: String): WatchHistoryEntity?
     
     @Query("DELETE FROM watch_history WHERE itemId NOT IN (SELECT itemId FROM watch_history ORDER BY lastWatchedTimestamp DESC LIMIT 50)")
     suspend fun trimExcessHistory()

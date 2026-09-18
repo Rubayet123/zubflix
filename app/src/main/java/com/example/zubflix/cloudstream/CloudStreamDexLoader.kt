@@ -485,21 +485,19 @@ object CloudStreamDexLoader {
                 val targetSeason = season ?: 1
                 val targetEpisode = episode ?: 1
                 val matchedEp = details.episodes.firstOrNull {
-                    (it.season == targetSeason || it.season == null) && (it.episode == targetEpisode || it.episode == null)
-                } ?: details.episodes.firstOrNull()
-                if (matchedEp != null) {
-                    loadData = matchedEp.data.ifBlank { matchedItem.url }
-                }
+                    (it.season == targetSeason || it.season == null) && (it.episode == targetEpisode || (episode == null && it.episode == null))
+                } ?: if (episode == null) details.episodes.firstOrNull() else null
+                if (matchedEp == null) return@withContext emptyList()
+                loadData = matchedEp.data.ifBlank { matchedItem.url }
             } else if (details is AnimeLoadResponse) {
                 val targetSeason = season ?: 1
                 val targetEpisode = episode ?: 1
                 val allEps = details.episodes.values.flatten()
                 val matchedEp = allEps.firstOrNull {
-                    (it.season == targetSeason || it.season == null) && (it.episode == targetEpisode || it.episode == null)
-                } ?: allEps.firstOrNull()
-                if (matchedEp != null) {
-                    loadData = matchedEp.data.ifBlank { matchedItem.url }
-                }
+                    (it.season == targetSeason || it.season == null) && (it.episode == targetEpisode || (episode == null && it.episode == null))
+                } ?: if (episode == null) allEps.firstOrNull() else null
+                if (matchedEp == null) return@withContext emptyList()
+                loadData = matchedEp.data.ifBlank { matchedItem.url }
             } else if (details is MovieLoadResponse) {
                 loadData = details.dataUrl.ifBlank { matchedItem.url }
             }

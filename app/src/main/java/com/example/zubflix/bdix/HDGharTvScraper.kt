@@ -24,10 +24,8 @@ internal object HDGharTvScraper : LocalScraper {
             val matchedItem = searchItems.firstOrNull { item ->
                 item.isSeries == isSeries && BDIXUtils.titlesMatch(item.title, query)
             } ?: searchItems.firstOrNull { item ->
-                item.isSeries == isSeries
-            } ?: searchItems.firstOrNull { item ->
                 BDIXUtils.titlesMatch(item.title, query)
-            } ?: searchItems.first()
+            } ?: return emptyList()
 
             val details = delegateSource.getDetails(matchedItem.id) ?: return emptyList()
 
@@ -40,10 +38,17 @@ internal object HDGharTvScraper : LocalScraper {
                 if (matchedSeason == null) return emptyList()
 
                 val matchedEp = matchedSeason.episodes.find {
-                    it.title.contains("Episode $eNum", ignoreCase = true) || it.title.contains("E$eNum", ignoreCase = true)
-                } ?: matchedSeason.episodes.getOrNull((eNum - 1).coerceAtLeast(0))
+                    Regex("(?i)\\b(?:Episode|Ep|E)\\s*0*$eNum\\b").containsMatchIn(it.title) ||
+                        it.title.equals("Episode $eNum", ignoreCase = true)
+                } ?: if (eNum > 0 && eNum <= matchedSeason.episodes.size) {
+                    matchedSeason.episodes.getOrNull(eNum - 1)
+                } else null
 
-                matchedEp?.streamUrl ?: details.streamUrl ?: matchedItem.id
+                if (matchedEp == null || matchedEp.streamUrl.isNullOrBlank()) {
+                    return emptyList()
+                }
+
+                matchedEp.streamUrl
             } else {
                 details.streamUrl ?: matchedItem.id
             }

@@ -19,23 +19,58 @@ internal object CircleFtpScraper : LocalScraper {
         try {
             val searchItems = delegateSource.search(query)
             val isSeries = (type == "series" || type == "tv")
-            val matchedItem = searchItems.firstOrNull { item ->
-                item.isSeries == isSeries && BDIXUtils.titlesMatch(item.title, query)
-            } ?: searchItems.firstOrNull { item ->
-                BDIXUtils.titlesMatch(item.title, query)
-            } ?: return emptyList()
+            
+            val matchedItem = searchItems
+                .map { item ->
+                    val score = BDIXUtils.titleMatchScore(item.title, query)
+                    item to score
+                }
+                .filter { (item, score) ->
+                    score >= 0.70 && (!isSeries || item.isSeries)
+                }
+                .maxByOrNull { (item, score) ->
+                    var rank = score
+                    if (item.isSeries == isSeries) rank += 1.0
+                    rank
+                }?.first
+                ?: searchItems.firstOrNull { item ->
+                    item.isSeries == isSeries && BDIXUtils.titlesMatch(item.title, query)
+                }
+                ?: searchItems.firstOrNull { item ->
+                    BDIXUtils.titlesMatch(item.title, query)
+                }
+                ?: return emptyList()
 
             val details = delegateSource.getDetails(matchedItem.id) ?: return emptyList()
+
             if (!isSeries && !details.streamUrl.isNullOrBlank()) {
-                results.add(
-                    StreamResult(
-                        source = "CircleFTP",
-                        title = "${details.title} | BDIX FTP",
-                        url = details.streamUrl,
-                        qualityScore = 35,
-                        mediaTitle = details.title
+                val ipLink = CircleFtpSource.linkToIp(details.streamUrl)
+                val qualityTag = details.quality?.let { " [$it]" } ?: ""
+                
+                // Add direct IP stream
+                if (ipLink.isNotBlank()) {
+                    results.add(
+                        StreamResult(
+                            source = "CircleFTP",
+                            title = "${details.title}$qualityTag [Direct IP]",
+                            url = ipLink,
+                            qualityScore = 38,
+                            mediaTitle = details.title
+                        )
                     )
-                )
+                }
+                // Also add domain link if different
+                if (details.streamUrl != ipLink) {
+                    results.add(
+                        StreamResult(
+                            source = "CircleFTP",
+                            title = "${details.title}$qualityTag [Domain]",
+                            url = details.streamUrl!!,
+                            qualityScore = 36,
+                            mediaTitle = details.title
+                        )
+                    )
+                }
             }
 
             details.seasons?.forEach { seasonItem ->
@@ -70,15 +105,29 @@ internal object CircleFtpScraper : LocalScraper {
 
                         if (episode == null || epNum == episode) {
                             if (epItem.streamUrl.isNotBlank()) {
-                                results.add(
-                                    StreamResult(
-                                        source = "CircleFTP",
-                                        title = "${epItem.title} | BDIX FTP",
-                                        url = epItem.streamUrl,
-                                        qualityScore = 35,
-                                        mediaTitle = matchedItem.title
+                                val ipLink = CircleFtpSource.linkToIp(epItem.streamUrl)
+                                if (ipLink.isNotBlank()) {
+                                    results.add(
+                                        StreamResult(
+                                            source = "CircleFTP",
+                                            title = "${epItem.title} [Direct IP]",
+                                            url = ipLink,
+                                            qualityScore = 38,
+                                            mediaTitle = matchedItem.title
+                                        )
                                     )
-                                )
+                                }
+                                if (epItem.streamUrl != ipLink) {
+                                    results.add(
+                                        StreamResult(
+                                            source = "CircleFTP",
+                                            title = "${epItem.title} [Domain]",
+                                            url = epItem.streamUrl,
+                                            qualityScore = 36,
+                                            mediaTitle = matchedItem.title
+                                        )
+                                    )
+                                }
                             }
                         }
                     }
@@ -91,3 +140,4 @@ internal object CircleFtpScraper : LocalScraper {
         return results
     }
 }
+

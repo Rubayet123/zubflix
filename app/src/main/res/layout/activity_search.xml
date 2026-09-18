@@ -29,7 +29,9 @@
             android:scaleType="centerInside"
             app:tint="#FFFFFF"
             android:focusable="true"
-            android:clickable="true"/>
+            android:clickable="true"
+            android:nextFocusRight="@+id/et_search"
+            android:nextFocusDown="@+id/rv_search_results"/>
 
         <!-- Unified Capsule Search Bar (YouTube style) -->
         <LinearLayout
@@ -57,7 +59,11 @@
                 android:textSize="15sp"
                 android:imeOptions="actionSearch"
                 android:singleLine="true"
-                android:inputType="text"/>
+                android:inputType="text"
+                android:focusable="true"
+                android:nextFocusLeft="@+id/btn_back"
+                android:nextFocusRight="@+id/btn_search_action"
+                android:nextFocusDown="@+id/rv_search_results"/>
 
             <!-- Clear Text Button -->
             <ImageView
@@ -69,7 +75,10 @@
                 android:src="@drawable/ic_clear"
                 android:visibility="gone"
                 android:focusable="true"
-                android:clickable="true"/>
+                android:clickable="true"
+                android:nextFocusLeft="@+id/et_search"
+                android:nextFocusRight="@+id/btn_search_action"
+                android:nextFocusDown="@+id/rv_search_results"/>
 
             <!-- Vertical Divider -->
             <View
@@ -88,7 +97,10 @@
                 android:scaleType="centerInside"
                 app:tint="#C9D1D9"
                 android:focusable="true"
-                android:clickable="true"/>
+                android:clickable="true"
+                android:nextFocusLeft="@+id/et_search"
+                android:nextFocusRight="@+id/btn_global_search"
+                android:nextFocusDown="@+id/rv_search_results"/>
 
         </LinearLayout>
 
@@ -104,7 +116,9 @@
             android:scaleType="centerInside"
             app:tint="#8B949E"
             android:focusable="true"
-            android:clickable="true"/>
+            android:clickable="true"
+            android:nextFocusLeft="@+id/btn_search_action"
+            android:nextFocusDown="@+id/rv_search_results"/>
 
     </LinearLayout>
 
@@ -159,6 +173,7 @@
         android:layout_height="0dp"
         android:clipToPadding="false"
         android:paddingBottom="24dp"
+        android:nextFocusUp="@+id/et_search"
         app:layout_constraintTop_toBottomOf="@id/ll_status_bar"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -203,9 +218,13 @@
                 android:textColor="#E50914"
                 android:textSize="13sp"
                 android:textStyle="bold"
-                android:padding="6dp"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="6dp"
+                android:background="@drawable/bg_clear_history_btn"
                 android:focusable="true"
-                android:clickable="true"/>
+                android:clickable="true"
+                android:nextFocusUp="@+id/et_search"
+                android:nextFocusDown="@+id/rv_search_history"/>
         </RelativeLayout>
 
         <androidx.recyclerview.widget.RecyclerView
@@ -213,7 +232,8 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clipToPadding="false"
-            android:paddingBottom="16dp"/>
+            android:paddingBottom="16dp"
+            android:nextFocusUp="@+id/btn_clear_history"/>
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

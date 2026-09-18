@@ -145,29 +145,18 @@
         android:clipToPadding="false"
         android:focusable="true"/>
 
-    <!-- Shimmer Home Skeleton Loading View -->
-    <include
-        android:id="@+id/shimmer_home_container"
-        layout="@layout/layout_shimmer_home"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
-    <!-- Loading Indicator -->
+    <!-- Clean Brand Loading Indicator -->
     <ProgressBar
         android:id="@+id/loading_indicator"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:indeterminateTint="#E50914"/>
+        android:indeterminateTint="#E50914"
+        android:elevation="10dp"/>
 
     <!-- Bottom Navigation Bar (Mobile Only) -->
     <LinearLayout

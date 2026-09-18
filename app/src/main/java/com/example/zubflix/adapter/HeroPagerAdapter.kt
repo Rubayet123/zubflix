@@ -9,6 +9,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.example.R
 import com.example.zubflix.database.AppDatabase
 import com.example.zubflix.database.MyListEntity
@@ -104,6 +105,7 @@ class HeroPagerAdapter(
                     .load(bgUrl)
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
                     .format(com.bumptech.glide.load.DecodeFormat.PREFER_RGB_565)
+                    .transition(DrawableTransitionOptions.withCrossFade(300))
                     .centerCrop()
                     .into(imgBackdrop)
             } else {

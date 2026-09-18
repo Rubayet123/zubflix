@@ -25,6 +25,7 @@ import android.content.Context
 
 class NuvioSource(private val context: Context? = null) : StreamingSource {
     override val name: String = "Nuvio"
+    override val hasBackdropSupport: Boolean = true
     
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -33,8 +34,8 @@ class NuvioSource(private val context: Context? = null) : StreamingSource {
         .build()
 
     private val addonClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
+        .connectTimeout(12, TimeUnit.SECONDS)
+        .readTimeout(12, TimeUnit.SECONDS)
         .followRedirects(true)
         .build()
     
@@ -347,11 +348,12 @@ class NuvioSource(private val context: Context? = null) : StreamingSource {
 
         // Add Networks Category before Genre
         val networkItems = com.example.zubflix.model.FilterConfigRepository.getNetworks(context)
+            .filter { it.id != "all" }
             .map { net ->
                 StreamingItem(
                     id = "network:${net.id}",
                     title = net.name,
-                    imageUrl = "",
+                    imageUrl = net.logoUrl ?: "",
                     isSeries = false,
                     isCategory = true
                 )
@@ -863,10 +865,13 @@ class NuvioSource(private val context: Context? = null) : StreamingSource {
 
             if (id.startsWith("tt")) {
                 imdbId = id
+            } else if (id.startsWith("tmdb_")) {
+                tmdbId = id.removePrefix("tmdb_")
             } else if (id.contains(":")) {
                 val parts = id.split(":")
                 val first = parts[0]
-                val second = parts[1]
+                val second = parts.getOrNull(1) ?: ""
+                val third = parts.getOrNull(2)
                 if (first == "movie" || first == "tv" || first == "series") {
                     mediaType = if (first == "series") "tv" else first
                     if (second.startsWith("tt")) {
@@ -875,7 +880,12 @@ class NuvioSource(private val context: Context? = null) : StreamingSource {
                         tmdbId = second
                     }
                 } else if (first == "tmdb") {
-                    tmdbId = second
+                    if (third != null && third.isNotBlank()) {
+                        mediaType = if (second == "series") "tv" else second
+                        tmdbId = third
+                    } else {
+                        tmdbId = second
+                    }
                 } else if (first == "imdb") {
                     imdbId = second
                 }
@@ -1070,10 +1080,23 @@ class NuvioSource(private val context: Context? = null) : StreamingSource {
             if (itemId.startsWith("tt")) {
                 imdbId = itemId
                 mediaType = "tv"
+            } else if (itemId.startsWith("tmdb_")) {
+                val clean = itemId.removePrefix("tmdb_")
+                if (clean.startsWith("tv_") || clean.startsWith("series_")) {
+                    tmdbId = clean.substringAfter("_")
+                    mediaType = "tv"
+                } else if (clean.startsWith("movie_")) {
+                    tmdbId = clean.substringAfter("_")
+                    mediaType = "movie"
+                } else {
+                    tmdbId = clean
+                    mediaType = "tv"
+                }
             } else if (itemId.contains(":")) {
                 val parts = itemId.split(":")
                 val first = parts[0]
-                val second = parts[1]
+                val second = parts.getOrNull(1) ?: ""
+                val third = parts.getOrNull(2)
                 if (first == "movie" || first == "tv" || first == "series") {
                     mediaType = if (first == "series") "tv" else first
                     if (second.startsWith("tt")) {
@@ -1082,12 +1105,20 @@ class NuvioSource(private val context: Context? = null) : StreamingSource {
                         tmdbId = second
                     }
                 } else if (first == "tmdb") {
-                    tmdbId = second
-                    mediaType = "tv"
+                    if (third != null && third.isNotBlank()) {
+                        mediaType = if (second == "series") "tv" else second
+                        tmdbId = third
+                    } else {
+                        tmdbId = second
+                        mediaType = "tv"
+                    }
                 } else if (first == "imdb") {
                     imdbId = second
                     mediaType = "tv"
                 }
+            } else if (itemId.all { it.isDigit() }) {
+                tmdbId = itemId
+                mediaType = "tv"
             }
 
             val context = this@NuvioSource.context ?: return@withContext emptyList()
@@ -1272,6 +1303,9 @@ class NuvioSource(private val context: Context? = null) : StreamingSource {
 
     private suspend fun fetchStreamsFromUrl(url: String, defaultName: String): List<Pair<String, String>> = withContext(Dispatchers.IO) {
         val results = mutableListOf<Pair<String, String>>()
+        if (url.contains("127.0.0.1") || url.contains("localhost")) {
+            return@withContext emptyList()
+        }
         try {
             val request = Request.Builder()
                 .url(url)
@@ -1358,8 +1392,13 @@ class NuvioSource(private val context: Context? = null) : StreamingSource {
                     results.add(Pair(displayName, finalUrl))
                 }
             }
+        } catch (e: java.net.SocketTimeoutException) {
+            Log.w("Nuvio", "Timeout fetching streams from $url: ${e.message}")
+        } catch (e: java.io.IOException) {
+            Log.w("Nuvio", "Network error fetching streams from $url: ${e.message}")
         } catch (e: Exception) {
-            Log.e("Nuvio", "Error fetching streams from $url", e)
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Log.e("Nuvio", "Error fetching streams from $url: ${e.message}")
         }
         results
     }
@@ -1565,11 +1604,16 @@ class NuvioSource(private val context: Context? = null) : StreamingSource {
                                     val scraperStreams = kotlinx.coroutines.withTimeoutOrNull(20000) {
                                         scraper.getStreams(type, meta, season, episode)
                                     } ?: emptyList()
-                                    processStreams(scraperStreams.map {
+                                    val validStreams = scraperStreams.filter { item ->
+                                        val itemTitle = item.mediaTitle.ifBlank { item.title }
+                                        itemTitle.isBlank() || com.example.zubflix.bdix.BDIXUtils.titlesMatch(itemTitle, queryTitle)
+                                    }
+                                    processStreams(validStreams.map {
                                         Pair(formatLocalStreamDisplayName(it, "[Local Scraper]"), it.url)
                                     })
                                 } catch (t: Throwable) {
-                                    Log.e("Nuvio", "Error executing local scraper ${scraper.id}: ${t.message}", t)
+                                    if (t is kotlinx.coroutines.CancellationException) throw t
+                                    Log.e("Nuvio", "Error executing local scraper ${scraper.id}: ${t.message}")
                                 } finally {
                                     synchronized(this@NuvioSource) { doneSources++ }
                                     onProgress(doneSources, totalSources)
@@ -1598,7 +1642,8 @@ class NuvioSource(private val context: Context? = null) : StreamingSource {
                                         Pair(formatLocalStreamDisplayName(it, "[CloudStream Extension]"), it.url)
                                     })
                                 } catch (t: Throwable) {
-                                    Log.e("Nuvio", "Error executing CloudStream plugin ${csPlugin.id}: ${t.message}", t)
+                                    if (t is kotlinx.coroutines.CancellationException) throw t
+                                    Log.e("Nuvio", "Error executing CloudStream plugin ${csPlugin.id}: ${t.message}")
                                 } finally {
                                     synchronized(this@NuvioSource) { doneSources++ }
                                     onProgress(doneSources, totalSources)
@@ -1613,7 +1658,8 @@ class NuvioSource(private val context: Context? = null) : StreamingSource {
                             val streams = kotlinx.coroutines.withTimeoutOrNull(20000) { fetchStreamsFromUrl(endpoint, name) } ?: emptyList()
                             processStreams(streams)
                         } catch (t: Throwable) {
-                            Log.e("Nuvio", "Error fetching addon stream $name ($endpoint): ${t.message}", t)
+                            if (t is kotlinx.coroutines.CancellationException) throw t
+                            Log.e("Nuvio", "Error fetching addon stream $name ($endpoint): ${t.message}")
                         } finally {
                             synchronized(this@NuvioSource) { doneSources++ }
                             onProgress(doneSources, totalSources)
@@ -1624,11 +1670,13 @@ class NuvioSource(private val context: Context? = null) : StreamingSource {
                     try {
                         it.await()
                     } catch (t: Throwable) {
-                        Log.e("Nuvio", "Deferred await error: ${t.message}", t)
+                        if (t is kotlinx.coroutines.CancellationException) throw t
+                        Log.e("Nuvio", "Deferred await error: ${t.message}")
                     }
                 }
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Log.e("Nuvio", "Error extracting video links streaming", e)
         }
     }

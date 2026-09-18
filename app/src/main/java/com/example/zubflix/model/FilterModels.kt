@@ -24,7 +24,8 @@ data class NetworkFilterItem(
     val name: String,
     val tvNetworkId: Int?,
     val movieProviderId: Int?,
-    val defaultRegion: String = "US"
+    val defaultRegion: String = "US",
+    val logoUrl: String? = null
 )
 
 data class SortOptionFilterItem(

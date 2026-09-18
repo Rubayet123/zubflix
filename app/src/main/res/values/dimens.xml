@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="grid_spacing">8dp</dimen>
+    <dimen name="details_hero_max_width">1000dp</dimen>
+    <dimen name="details_synopsis_max_width">1000dp</dimen>
+    <dimen name="details_watch_btn_width">160dp</dimen>
+    <item name="details_watch_btn_weight" format="float" type="dimen">1.0</item>
+    <dimen name="details_action_btn_margin">12dp</dimen>
 </resources>

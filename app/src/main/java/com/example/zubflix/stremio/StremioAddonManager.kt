@@ -40,6 +40,8 @@ object StremioAddonManager {
             it.manifestUrl == newPenguUrl ||
             it.manifestUrl == frostStreamUrl ||
             it.manifestUrl == bdixUrl ||
+            it.manifestUrl.contains("127.0.0.1") ||
+            it.manifestUrl.contains("localhost:8080") ||
             it.manifestUrl.startsWith("internal://") ||
             it.manifestUrl.contains("froststream", ignoreCase = true) ||
             it.manifestUrl.contains("7a82163c306e", ignoreCase = true) ||
@@ -54,21 +56,17 @@ object StremioAddonManager {
         // 2. Add and ensure default initial addons are always present and enabled
         val bharatUrl = "https://bharat-binge.semi-column.workers.dev/lang%3Ahi-recent-movie%2Clang%3Ahi-recent-series/manifest.json"
         
-        fun ensureAndEnable(url: String, name: String, desc: String, res: List<String>) {
+        fun ensureAndEnable(url: String, name: String, desc: String, res: List<String>, defaultEnabled: Boolean = true) {
             val index = list.indexOfFirst { it.manifestUrl == url }
             if (index == -1) {
-                list.add(StremioAddon(url, name, desc, "1.0.0", res, true))
+                list.add(StremioAddon(url, name, desc, "1.0.0", res, defaultEnabled))
                 modified = true
             } else {
-                if (!list[index].isEnabled) {
-                    list[index].isEnabled = true
-                    modified = true
-                }
-                // Ensure correct resources are set (e.g. catalog for Bharat Binge)
+                // Keep user's preference for isEnabled (do NOT force true)
                 if (list[index].resources.isEmpty() || (url == bharatUrl && !list[index].resources.contains("catalog"))) {
-                    // Update resources
+                    val currentEnabledState = list[index].isEnabled
                     val updatedAddon = list[index].copy(resources = res)
-                    updatedAddon.isEnabled = true
+                    updatedAddon.isEnabled = currentEnabledState
                     list[index] = updatedAddon
                     modified = true
                 }
@@ -78,12 +76,22 @@ object StremioAddonManager {
         val cncVerseBridgeUrl = "http://127.0.0.1:8080/manifest.json"
         val cncVerseHostedUrl = "https://cncverse-bridge.hayd.uk/manifest.json"
 
-        ensureAndEnable(defaultUrl, "OpenSubtitles v3", "OpenSubtitles v3 API for Nuvio", listOf("subtitles"))
-        ensureAndEnable(penguAuthUrl, "Penguplay", "Penguplay Stremio addon for streaming sources", listOf("stream"))
-        ensureAndEnable(bharatUrl, "Bharat Binge", "Discover Indian content - Hindi New Releases & Regional catalogs", listOf("catalog", "meta"))
-        ensureAndEnable(cncVerseBridgeUrl, "CNCVerse Bridge (Local)", "CNCVerse CloudStream Bridge local addon for scraped streams", listOf("stream", "catalog"))
+        val hdhubUrl = "https://hdhub.thevolecitor.qzz.io/eyJ0b3Jib3giOiJ1bnNldCIsInF1YWxpdGllcyI6IjEwODBwIiwic29ydCI6ImFzYyIsImNhdGFsb2dzIjoiIn0/manifest.json"
+
+        ensureAndEnable(defaultUrl, "OpenSubtitles v3", "OpenSubtitles v3 API for Nuvio", listOf("subtitles"), defaultEnabled = true)
+        ensureAndEnable(penguAuthUrl, "Penguplay", "Penguplay Stremio addon for streaming sources", listOf("stream"), defaultEnabled = true)
+        ensureAndEnable(hdhubUrl, "HDHub", "HDHub Stremio addon for 1080p stream sources", listOf("stream"), defaultEnabled = true)
+        ensureAndEnable(bharatUrl, "Bharat Binge", "Discover Indian content - Hindi New Releases & Regional catalogs", listOf("catalog", "meta"), defaultEnabled = true)
+        ensureAndEnable(cncVerseHostedUrl, "CNCVerse Bridge", "CNCVerse CloudStream Bridge addon for scraped streams", listOf("stream", "catalog"), defaultEnabled = false)
         
-        prefs.edit().putBoolean("INITIALIZED_DEFAULTS_V4", true).apply()
+        if (!prefs.getBoolean("INITIALIZED_DEFAULTS_V5", false)) {
+            val cncIdx = list.indexOfFirst { it.manifestUrl == cncVerseHostedUrl || it.name.contains("CNCVerse", ignoreCase = true) }
+            if (cncIdx != -1 && list[cncIdx].isEnabled) {
+                list[cncIdx].isEnabled = false
+                modified = true
+            }
+            prefs.edit().putBoolean("INITIALIZED_DEFAULTS_V5", true).apply()
+        }
 
         if (modified) {
             saveAddons(context, list)

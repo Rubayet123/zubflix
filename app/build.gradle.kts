@@ -23,8 +23,8 @@ android {
     applicationId = "com.aistudio.zubflix.wtnarr"
     minSdk = 23
     targetSdk = 35
-    versionCode = 2
-    versionName = "1.0.1"
+    versionCode = 3
+    versionName = "1.0.2"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -71,6 +71,8 @@ android {
         keyPassword = "android"
         enableV1Signing = true
         enableV2Signing = true
+        enableV3Signing = true
+        enableV4Signing = true
       }
     }
   }
@@ -91,6 +93,7 @@ android {
         // Fallback to the built-in default debug signing config of Android Studio
         signingConfig = signingConfigs.getByName("debug")
       }
+      matchingFallbacks += listOf("release")
     }
   }
   compileOptions {

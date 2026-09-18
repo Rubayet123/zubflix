@@ -7,6 +7,7 @@ import android.widget.ImageView
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.example.R
 import com.example.zubflix.model.StreamingItem
 import androidx.recyclerview.widget.DiffUtil
@@ -354,6 +355,7 @@ class CategoryItemAdapter(
                                 .load(item.imageUrl)
                                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                                 .format(com.bumptech.glide.load.DecodeFormat.PREFER_RGB_565)
+                                .transition(DrawableTransitionOptions.withCrossFade(250))
                                 .centerCrop()
                                 .into(imgView)
                         } catch (e: Exception) {

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Top Horizontal Bar (Bright Red) -->
+    <path
+        android:fillColor="#E50914"
+        android:pathData="M0,0 H48 V15 H0 Z" />
+    <!-- Bottom Horizontal Bar (Bright Red) -->
+    <path
+        android:fillColor="#E50914"
+        android:pathData="M0,33 H48 V48 H0 Z" />
+    <!-- Diagonal Bar (Darker Crimson 3D Perspective) -->
+    <path
+        android:fillColor="#B20710"
+        android:pathData="M48,0 L48,15 L0,48 L0,33 Z" />
+    <!-- Subtle drop shadow under diagonal fold for 3D depth -->
+    <path
+        android:fillColor="#000000"
+        android:fillAlpha="0.28"
+        android:pathData="M48,15 L0,48 L4,48 L52,15 Z" />
+</vector>

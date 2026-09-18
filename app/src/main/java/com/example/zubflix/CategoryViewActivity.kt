@@ -351,13 +351,7 @@ class CategoryViewActivity : AppCompatActivity() {
 
     private fun loadNextPage() {
         isLoading = true
-        if (currentPage == 1 && loadedItems.isEmpty()) {
-            binding.shimmerGridContainer.shimmerGridScroll.visibility = View.VISIBLE
-            com.example.zubflix.util.ShimmerHelper.startShimmer(binding.shimmerGridContainer.shimmerGridLayout)
-            binding.loadingProgress.visibility = View.GONE
-        } else {
-            binding.loadingProgress.visibility = View.VISIBLE
-        }
+        binding.loadingProgress.visibility = View.VISIBLE
 
         lifecycleScope.launch {
             try {
@@ -389,8 +383,6 @@ class CategoryViewActivity : AppCompatActivity() {
                 Toast.makeText(this@CategoryViewActivity, "Failed to load page $currentPage", Toast.LENGTH_SHORT).show()
             } finally {
                 isLoading = false
-                com.example.zubflix.util.ShimmerHelper.stopShimmer(binding.shimmerGridContainer.shimmerGridLayout)
-                binding.shimmerGridContainer.shimmerGridScroll.visibility = View.GONE
                 binding.loadingProgress.visibility = View.GONE
             }
         }

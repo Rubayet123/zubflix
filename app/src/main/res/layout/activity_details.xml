@@ -87,180 +87,191 @@
                     android:layout_alignBottom="@id/img_backdrop"
                     android:orientation="vertical"
                     android:paddingHorizontal="20dp"
-                    android:paddingBottom="12dp">
+                    android:paddingBottom="14dp">
 
-                    <!-- Movie / Series Title -->
-                    <TextView
-                        android:id="@+id/tv_title"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        tools:text="Movie Title"
-                        android:textColor="#FFFFFF"
-                        android:textSize="28sp"
-                        android:textStyle="bold"
-                        android:fontFamily="sans-serif-black"
-                        android:layout_marginBottom="8dp" />
-
-                    <!-- Metadata Badges Row (★ Rating, Year, Source) - Placed below Title -->
+                    <!-- Max-Width Container for Title, Badges, Description & Actions -->
                     <LinearLayout
-                        android:id="@+id/meta_row"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:layout_marginBottom="10dp">
+                        android:maxWidth="@dimen/details_hero_max_width"
+                        android:orientation="vertical">
 
-                        <!-- Rating Pill -->
+                        <!-- Movie / Series Title -->
                         <TextView
-                            android:id="@+id/tv_match"
+                            android:id="@+id/tv_title"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:background="@drawable/bg_hero_rating_pill"
-                            android:paddingHorizontal="7dp"
-                            android:paddingVertical="3dp"
-                            tools:text="★ 7.5"
-                            android:textColor="#FFD700"
-                            android:textSize="11sp"
+                            android:maxWidth="@dimen/details_synopsis_max_width"
+                            tools:text="Movie Title"
+                            android:textColor="#FFFFFF"
+                            android:textSize="28sp"
                             android:textStyle="bold"
-                            android:layout_marginEnd="8dp" />
+                            android:fontFamily="sans-serif-black"
+                            android:layout_marginBottom="8dp" />
 
-                        <!-- Year Pill -->
-                        <TextView
-                            android:id="@+id/tv_year"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:background="@drawable/bg_meta_pill_dark"
-                            android:paddingHorizontal="7dp"
-                            android:paddingVertical="3dp"
-                            tools:text="2026"
-                            android:textColor="#E0E6F0"
-                            android:textSize="11sp"
-                            android:textStyle="bold"
-                            android:layout_marginEnd="8dp" />
-
-                        <!-- Provider / Source Pill -->
-                        <TextView
-                            android:id="@+id/tv_provider"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:background="@drawable/bg_meta_pill_dark"
-                            android:paddingHorizontal="7dp"
-                            android:paddingVertical="3dp"
-                            tools:text="Nuvio"
-                            android:textColor="#9EADC4"
-                            android:textSize="11sp"
-                            android:textStyle="bold" />
-
-                    </LinearLayout>
-
-                    <!-- Dynamic Genre Pill Badges Row -->
-                    <HorizontalScrollView
-                        android:id="@+id/scroll_genres"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:scrollbars="none"
-                        android:layout_marginBottom="12dp">
-
+                        <!-- Metadata Badges Row (★ Rating, Year, Source) - Placed below Title -->
                         <LinearLayout
-                            android:id="@+id/genres_container"
+                            android:id="@+id/meta_row"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:orientation="horizontal" />
-                    </HorizontalScrollView>
-
-                    <!-- Overview / Description -->
-                    <TextView
-                        android:id="@+id/tv_description"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        tools:text="Overview text..."
-                        android:textColor="#C0CCDC"
-                        android:textSize="13sp"
-                        android:lineSpacingMultiplier="1.25"
-                        android:maxLines="4"
-                        android:ellipsize="end"
-                        android:layout_marginBottom="16dp" />
-
-                    <!-- Action Buttons Row (Watch Movie, Search, Heart/My List) -->
-                    <LinearLayout
-                        android:id="@+id/action_row"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:clipChildren="false"
-                        android:clipToPadding="false">
-
-                        <!-- Primary CTA Button (Solid Red Pill) -->
-                        <LinearLayout
-                            android:id="@+id/btn_play"
-                            android:layout_width="0dp"
-                            android:layout_weight="1"
-                            android:layout_height="50dp"
-                            android:background="@drawable/bg_btn_watch_movie"
                             android:orientation="horizontal"
-                            android:gravity="center"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:paddingHorizontal="16dp"
-                            android:layout_marginEnd="12dp">
+                            android:gravity="center_vertical"
+                            android:layout_marginBottom="10dp">
 
-                            <ImageView
-                                android:id="@+id/iv_play_icon"
-                                android:layout_width="18dp"
-                                android:layout_height="18dp"
-                                android:src="@drawable/ic_play_premium"
-                                app:tint="#FFFFFF"
-                                android:layout_marginEnd="8dp" />
-
+                            <!-- Rating Pill (Frosted Glass) -->
                             <TextView
-                                android:id="@+id/tv_play_text"
+                                android:id="@+id/tv_match"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="WATCH MOVIE"
-                                android:textColor="#FFFFFF"
-                                android:textSize="14sp"
+                                android:background="@drawable/bg_hero_rating_pill"
+                                android:paddingHorizontal="8dp"
+                                android:paddingVertical="3.5dp"
+                                tools:text="★ 7.5"
+                                android:textColor="#FFD700"
+                                android:textSize="11.5sp"
                                 android:textStyle="bold"
-                                android:letterSpacing="0.04" />
+                                android:layout_marginEnd="8dp" />
+
+                            <!-- Year Pill (Frosted Glass) -->
+                            <TextView
+                                android:id="@+id/tv_year"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="@drawable/bg_meta_pill_dark"
+                                android:paddingHorizontal="8dp"
+                                android:paddingVertical="3.5dp"
+                                tools:text="2026"
+                                android:textColor="#E5E7EB"
+                                android:textSize="11.5sp"
+                                android:textStyle="bold"
+                                android:layout_marginEnd="8dp" />
+
+                            <!-- Provider / Source Pill (Frosted Glass) -->
+                            <TextView
+                                android:id="@+id/tv_provider"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="@drawable/bg_meta_pill_dark"
+                                android:paddingHorizontal="8dp"
+                                android:paddingVertical="3.5dp"
+                                tools:text="Nuvio"
+                                android:textColor="#D1D5DB"
+                                android:textSize="11.5sp"
+                                android:textStyle="bold" />
+
                         </LinearLayout>
 
-                        <!-- Search Other Sources Circular Button -->
-                        <FrameLayout
-                            android:id="@+id/btn_search_sources"
-                            android:layout_width="50dp"
-                            android:layout_height="50dp"
-                            android:background="@drawable/bg_circle_action_btn"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:layout_marginEnd="12dp">
+                        <!-- Dynamic Genre Pill Badges Row -->
+                        <HorizontalScrollView
+                            android:id="@+id/scroll_genres"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:scrollbars="none"
+                            android:layout_marginBottom="12dp">
 
-                            <ImageView
-                                android:layout_width="20dp"
-                                android:layout_height="20dp"
-                                android:layout_gravity="center"
-                                android:src="@drawable/ic_search"
-                                app:tint="#FFFFFF"
-                                android:contentDescription="Search other sources" />
-                        </FrameLayout>
+                            <LinearLayout
+                                android:id="@+id/genres_container"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal" />
+                        </HorizontalScrollView>
 
-                        <!-- My List Favorite Heart Circular Button -->
-                        <FrameLayout
-                            android:id="@+id/btn_my_list"
-                            android:layout_width="50dp"
-                            android:layout_height="50dp"
-                            android:background="@drawable/bg_circle_action_btn"
-                            android:clickable="true"
-                            android:focusable="true">
+                        <!-- Overview / Description (Constrained Editorial Width Column on TV) -->
+                        <TextView
+                            android:id="@+id/tv_description"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:maxWidth="@dimen/details_synopsis_max_width"
+                            tools:text="Overview text..."
+                            android:textColor="#C0CCDC"
+                            android:textSize="13sp"
+                            android:lineSpacingMultiplier="1.25"
+                            android:maxLines="5"
+                            android:ellipsize="end"
+                            android:layout_marginBottom="16dp" />
 
-                            <ImageView
-                                android:id="@+id/iv_my_list_icon"
-                                android:layout_width="22dp"
-                                android:layout_height="22dp"
-                                android:layout_gravity="center"
-                                android:src="@drawable/ic_heart_outline"
-                                app:tint="#FFFFFF"
-                                android:contentDescription="Favorite My List" />
-                        </FrameLayout>
+                        <!-- Action Buttons Row (Watch Movie, Search, Heart/My List) -->
+                        <LinearLayout
+                            android:id="@+id/action_row"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:clipChildren="false"
+                            android:clipToPadding="false">
+
+                            <!-- Primary CTA Button (Solid Red Pill) -->
+                            <LinearLayout
+                                android:id="@+id/btn_play"
+                                android:layout_width="wrap_content"
+                                android:minWidth="160dp"
+                                android:layout_height="48dp"
+                                android:background="@drawable/bg_btn_watch_movie"
+                                android:orientation="horizontal"
+                                android:gravity="center"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:paddingHorizontal="24dp"
+                                android:layout_marginEnd="@dimen/details_action_btn_margin">
+
+                                <ImageView
+                                    android:id="@+id/iv_play_icon"
+                                    android:layout_width="18dp"
+                                    android:layout_height="18dp"
+                                    android:src="@drawable/ic_play_premium"
+                                    app:tint="#FFFFFF"
+                                    android:layout_marginEnd="8dp" />
+
+                                <TextView
+                                    android:id="@+id/tv_play_text"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="WATCH MOVIE"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="14sp"
+                                    android:textStyle="bold"
+                                    android:letterSpacing="0.04" />
+                            </LinearLayout>
+
+                            <!-- Search Other Sources Circular Button -->
+                            <FrameLayout
+                                android:id="@+id/btn_search_sources"
+                                android:layout_width="48dp"
+                                android:layout_height="48dp"
+                                android:background="@drawable/bg_circle_action_btn"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:layout_marginEnd="@dimen/details_action_btn_margin">
+
+                                <ImageView
+                                    android:layout_width="20dp"
+                                    android:layout_height="20dp"
+                                    android:layout_gravity="center"
+                                    android:src="@drawable/ic_search"
+                                    app:tint="#FFFFFF"
+                                    android:contentDescription="Search other sources" />
+                            </FrameLayout>
+
+                            <!-- My List Favorite Heart Circular Button -->
+                            <FrameLayout
+                                android:id="@+id/btn_my_list"
+                                android:layout_width="48dp"
+                                android:layout_height="48dp"
+                                android:background="@drawable/bg_circle_action_btn"
+                                android:clickable="true"
+                                android:focusable="true">
+
+                                <ImageView
+                                    android:id="@+id/iv_my_list_icon"
+                                    android:layout_width="22dp"
+                                    android:layout_height="22dp"
+                                    android:layout_gravity="center"
+                                    android:src="@drawable/ic_heart_outline"
+                                    app:tint="#FFFFFF"
+                                    android:contentDescription="Favorite My List" />
+                            </FrameLayout>
+
+                        </LinearLayout>
 
                     </LinearLayout>
 

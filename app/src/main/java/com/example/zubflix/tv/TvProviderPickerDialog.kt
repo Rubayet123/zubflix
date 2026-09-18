@@ -20,7 +20,7 @@ import com.example.zubflix.model.StreamingSource
 class TvProviderPickerDialog(
     context: Context,
     private val onProviderSelected: (StreamingSource) -> Unit
-) : Dialog(context, R.style.Theme_Zubflix_Tv) {
+) : Dialog(context, android.R.style.Theme_Translucent_NoTitleBar) {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -82,6 +82,14 @@ class TvProviderPickerDialog(
 
             holder.itemView.setOnClickListener {
                 onSelect(source)
+            }
+
+            holder.itemView.setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    v.animate().scaleX(1.02f).scaleY(1.02f).translationZ(6f).setDuration(150).start()
+                } else {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).translationZ(0f).setDuration(150).start()
+                }
             }
         }
 

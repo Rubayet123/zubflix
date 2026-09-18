@@ -29,9 +29,18 @@ class ZubflixApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
 
-        // 1. Initialize CloudStream host & bridge
-        CloudStreamApp.install(this)
-        CloudStreamInitializer.init(this)
+        // 1. Initialize CloudStream host & bridge safely
+        try {
+            CloudStreamApp.install(this)
+        } catch (t: Throwable) {
+            android.util.Log.e("ZubflixApp", "CloudStreamApp install failed: ${t.message}")
+        }
+
+        try {
+            CloudStreamInitializer.init(this)
+        } catch (t: Throwable) {
+            android.util.Log.e("ZubflixApp", "CloudStreamInitializer init failed: ${t.message}")
+        }
 
         // 2. Initialize Glide memory optimizations (RGB_565 and 100MB disk cache)
         initGlide()

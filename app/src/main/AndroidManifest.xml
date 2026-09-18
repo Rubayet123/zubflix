@@ -52,6 +52,10 @@
             android:theme="@style/Theme.MyApplication" />
 
         <activity
+            android:name="com.example.zubflix.PersonDetailsActivity"
+            android:theme="@style/Theme.MyApplication" />
+
+        <activity
             android:name="com.example.zubflix.PlayerActivity"
             android:theme="@style/Theme.MyApplication"
             android:configChanges="orientation|keyboardHidden|screenSize|screenLayout|smallestScreenSize" />

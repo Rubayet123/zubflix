@@ -98,11 +98,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        com.example.zubflix.cloudstream.CloudStreamInitializer.init(applicationContext)
+        try {
+            com.example.zubflix.cloudstream.CloudStreamInitializer.init(applicationContext)
+        } catch (t: Throwable) {}
 
         val uiModeManager = getSystemService(android.content.Context.UI_MODE_SERVICE) as? android.app.UiModeManager
         val isTvMode = uiModeManager?.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION ||
-                packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK) ||
                 com.example.zubflix.util.AppearanceSettings.isHomeFlixTvTheme(this)
 
         if (isTvMode) {
@@ -415,9 +416,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadHomeData(forceRefresh: Boolean = false) {
         if (providerCategories.isEmpty()) {
-            binding.shimmerHomeContainer.shimmerHomeScroll.visibility = View.VISIBLE
-            com.example.zubflix.util.ShimmerHelper.startShimmer(binding.shimmerHomeContainer.shimmerHomeLayout)
-            binding.loadingIndicator.visibility = View.GONE
+            binding.loadingIndicator.visibility = View.VISIBLE
         } else {
             binding.loadingIndicator.visibility = View.VISIBLE
         }
@@ -523,8 +522,6 @@ class MainActivity : AppCompatActivity() {
                 e.printStackTrace()
                 Toast.makeText(this@MainActivity, "Failed to load media sources", Toast.LENGTH_SHORT).show()
             } finally {
-                com.example.zubflix.util.ShimmerHelper.stopShimmer(binding.shimmerHomeContainer.shimmerHomeLayout)
-                binding.shimmerHomeContainer.shimmerHomeScroll.visibility = View.GONE
                 binding.loadingIndicator.visibility = View.GONE
             }
         }
@@ -538,8 +535,9 @@ class MainActivity : AppCompatActivity() {
                         withContext(Dispatchers.Main) {
                             if (history.isNotEmpty()) {
                                 val historyItems = history.map { entity ->
+                                    val cleanId = entity.itemId.replace(Regex(":\\d+:\\d+$"), "")
                                     StreamingItem(
-                                        id = entity.itemId,
+                                        id = cleanId,
                                         title = entity.title,
                                         imageUrl = entity.imageUrl,
                                         isSeries = entity.isSeries,

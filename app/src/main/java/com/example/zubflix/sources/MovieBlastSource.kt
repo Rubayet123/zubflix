@@ -426,7 +426,7 @@ class MovieBlastSource(private val context: Context? = null) : StreamingSource {
                                 break
                             }
                         }
-                    } else {
+                    } else if (!isTv) {
                         videosArray = root.optJSONArray("videos") ?: JSONArray()
                     }
                 }

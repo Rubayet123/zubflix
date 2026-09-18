@@ -52,12 +52,16 @@ class TvMainActivity : FragmentActivity() {
     override fun onResume() {
         super.onResume()
         updateActiveProviderDisplay()
+        updateCombinedTvCategories()
     }
 
     private fun setupRowsFragment() {
         rowsFragment = TvHomeRowsFragment().apply {
             onItemClickListener = { item ->
                 handleItemClick(item)
+            }
+            onItemLongClickListener = { item ->
+                showContinueWatchingOptionsMenu(item)
             }
             onItemFocusListener = { item ->
                 updateHeroBanner(item)
@@ -67,6 +71,57 @@ class TvMainActivity : FragmentActivity() {
         supportFragmentManager.beginTransaction()
             .replace(R.id.tv_rows_frame, rowsFragment)
             .commit()
+    }
+
+    private fun showContinueWatchingOptionsMenu(item: StreamingItem) {
+        val options = arrayOf("Resume", "Details", "Dismiss")
+        android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle(item.title)
+            .setItems(options) { _, which ->
+                val cleanId = item.id.replace(Regex(":\\d+:\\d+$"), "")
+                val srcName = if (item.sourceName.isNullOrBlank()) {
+                    SourceManager.getSelectedSource(this).name
+                } else {
+                    item.sourceName
+                }
+                when (which) {
+                    0 -> { // Resume
+                        if (!item.isSeries && !item.streamUrl.isNullOrEmpty()) {
+                            val intent = Intent(this, com.example.zubflix.PlayerActivity::class.java).apply {
+                                putExtra("VIDEO_URL", item.streamUrl)
+                                putStringArrayListExtra("VIDEO_URLS", arrayListOf(item.streamUrl))
+                                putExtra("VIDEO_TITLE", item.title)
+                                putExtra("ITEM_ID", cleanId)
+                                putExtra("IMAGE_URL", item.imageUrl)
+                                putExtra("BACKDROP_URL", item.backdropUrl)
+                                putExtra("IS_SERIES", false)
+                                putExtra("SOURCE_NAME", srcName)
+                            }
+                            startActivity(intent)
+                        } else {
+                            val srcItem = item.copy(id = cleanId, sourceName = srcName)
+                            DetailsActivity.start(this, srcItem)
+                        }
+                    }
+                    1 -> { // Details
+                        val srcItem = item.copy(id = cleanId, sourceName = srcName)
+                        DetailsActivity.start(this, srcItem)
+                    }
+                    2 -> { // Dismiss
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            val dao = AppDatabase.getDatabase(this@TvMainActivity).watchHistoryDao()
+                            dao.deleteById(item.id)
+                            if (cleanId != item.id) {
+                                dao.deleteById(cleanId)
+                            }
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(this@TvMainActivity, "Removed from Continue Watching", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                }
+            }
+            .show()
     }
 
     private fun setupSidebarListeners() {
@@ -133,17 +188,49 @@ class TvMainActivity : FragmentActivity() {
     private fun updateHeroBanner(item: StreamingItem) {
         currentlyFocusedItem = item
 
-        if (item.isCategory) {
+        if (item.isCategory || item.id.startsWith("network:") || item.id.startsWith("genre:") || item.id.startsWith("region:")) {
             val cleanTitle = item.title.removePrefix("See All ").ifBlank { item.id }
-            binding.tvHeroBrand.text = "COLLECTION"
-            binding.tvHeroTitle.text = cleanTitle
-            binding.tvHeroRatingBadge.visibility = View.GONE
-            binding.tvHeroYear.visibility = View.GONE
-            binding.tvHeroDot1.visibility = View.GONE
-            binding.tvHeroBadgeAudio.visibility = View.GONE
-            binding.tvHeroSource.text = "Category"
-            binding.tvHeroOverview.text = item.description?.takeIf { it.isNotBlank() } ?: "Browse the complete collection of titles in $cleanTitle."
-            binding.tvHeroHighlightTag.visibility = View.GONE
+            if (item.id.startsWith("genre:")) {
+                binding.tvHeroBrand.text = "GENRE HUB"
+                binding.tvHeroTitle.text = cleanTitle
+                binding.tvHeroRatingBadge.visibility = View.GONE
+                binding.tvHeroYear.visibility = View.GONE
+                binding.tvHeroDot1.visibility = View.GONE
+                binding.tvHeroBadgeAudio.visibility = View.GONE
+                binding.tvHeroSource.text = "Category"
+                binding.tvHeroOverview.text = com.example.zubflix.util.GenreUtils.getGenreOverview(cleanTitle)
+                binding.tvHeroHighlightTag.visibility = View.GONE
+            } else if (item.id.startsWith("region:")) {
+                binding.tvHeroBrand.text = "REGION & LANGUAGE"
+                binding.tvHeroTitle.text = cleanTitle
+                binding.tvHeroRatingBadge.visibility = View.GONE
+                binding.tvHeroYear.visibility = View.GONE
+                binding.tvHeroDot1.visibility = View.GONE
+                binding.tvHeroBadgeAudio.visibility = View.GONE
+                binding.tvHeroSource.text = "Regional Hub"
+                binding.tvHeroOverview.text = "Explore popular movies and TV series originating from $cleanTitle."
+                binding.tvHeroHighlightTag.visibility = View.GONE
+            } else if (item.id.startsWith("network:") || item.id.contains("network")) {
+                binding.tvHeroBrand.text = "NETWORK & STUDIO"
+                binding.tvHeroTitle.text = cleanTitle
+                binding.tvHeroRatingBadge.visibility = View.GONE
+                binding.tvHeroYear.visibility = View.GONE
+                binding.tvHeroDot1.visibility = View.GONE
+                binding.tvHeroBadgeAudio.visibility = View.GONE
+                binding.tvHeroSource.text = "Studio Hub"
+                binding.tvHeroOverview.text = "Browse original movies and TV series produced and distributed by $cleanTitle."
+                binding.tvHeroHighlightTag.visibility = View.GONE
+            } else {
+                binding.tvHeroBrand.text = "COLLECTION"
+                binding.tvHeroTitle.text = cleanTitle
+                binding.tvHeroRatingBadge.visibility = View.GONE
+                binding.tvHeroYear.visibility = View.GONE
+                binding.tvHeroDot1.visibility = View.GONE
+                binding.tvHeroBadgeAudio.visibility = View.GONE
+                binding.tvHeroSource.text = "Category"
+                binding.tvHeroOverview.text = item.description?.takeIf { it.isNotBlank() } ?: "Browse the complete collection of titles in $cleanTitle."
+                binding.tvHeroHighlightTag.visibility = View.GONE
+            }
             return
         }
 
@@ -188,15 +275,15 @@ class TvMainActivity : FragmentActivity() {
             ?: "Click or press Select to stream instantly or discover more episodes and details."
         binding.tvHeroOverview.text = overview
 
-        // Highlight tagline (Netflix style)
+        // Highlight tagline (Disney+ / HBO Max Transparent Editorial Accent)
         binding.tvHeroHighlightTag.visibility = View.VISIBLE
         val ratingNum = rating?.replace("/10", "")?.trim()?.toDoubleOrNull() ?: 0.0
         if (ratingNum >= 7.5) {
-            binding.tvHeroHighlightText.text = "⭐ Top Rated (${String.format("%.1f", ratingNum)}/10) • 4K HDR Audio"
+            binding.tvHeroHighlightText.text = "TOP RATED (${String.format("%.1f", ratingNum)}/10) • 4K ULTRA HD • 5.1 AUDIO"
         } else if (item.isSeries) {
-            binding.tvHeroHighlightText.text = "📺 Full Seasons Available • Instant Stream"
+            binding.tvHeroHighlightText.text = "FULL SERIES AVAILABLE • ULTRA HD • INSTANT STREAM"
         } else {
-            binding.tvHeroHighlightText.text = "🔥 Trending on Zubflix • Press OK to Play"
+            binding.tvHeroHighlightText.text = "TRENDING ON ZUBFLIX • 4K ULTRA HD • CINEMATIC AUDIO"
         }
 
         // Backdrop Art
@@ -211,7 +298,9 @@ class TvMainActivity : FragmentActivity() {
     }
 
     private fun loadHomeData(forceRefresh: Boolean = false) {
-        binding.tvLoadingIndicator.visibility = View.VISIBLE
+        if (binding.tvSplashOverlay.visibility != View.VISIBLE) {
+            binding.tvLoadingIndicator.visibility = View.VISIBLE
+        }
 
         if (forceRefresh) {
             SourceManager.invalidateAllCaches()
@@ -257,6 +346,16 @@ class TvMainActivity : FragmentActivity() {
                 e.printStackTrace()
             } finally {
                 binding.tvLoadingIndicator.visibility = View.GONE
+                if (binding.tvSplashOverlay.visibility == View.VISIBLE) {
+                    binding.tvSplashOverlay.animate()
+                        .alpha(0f)
+                        .setDuration(400)
+                        .withEndAction {
+                            binding.tvSplashOverlay.visibility = View.GONE
+                            binding.tvSplashOverlay.alpha = 1f
+                        }
+                        .start()
+                }
             }
         }
     }
@@ -265,7 +364,12 @@ class TvMainActivity : FragmentActivity() {
         val combined = mutableListOf<StreamingCategory>()
         continueWatchingCategory?.let { combined.add(it) }
         combined.addAll(providerCategories)
-        rowsFragment.setCategories(combined)
+
+        val activeSource = SourceManager.getSelectedSource(this)
+        val isSourceLandscape = activeSource.hasBackdropSupport
+        val cardStylePref = com.example.zubflix.util.AppearanceSettings.getTvCardStyle(this)
+
+        rowsFragment.setCategories(combined, isSourceLandscape, cardStylePref)
     }
 
     private fun observeWatchHistory() {
@@ -278,13 +382,16 @@ class TvMainActivity : FragmentActivity() {
 
                 if (activeHistory.isNotEmpty()) {
                     val items = activeHistory.map { history ->
+                        val cleanId = history.itemId.replace(Regex(":\\d+:\\d+$"), "")
                         StreamingItem(
-                            id = history.itemId,
+                            id = cleanId,
                             title = history.title,
                             imageUrl = history.imageUrl,
+                            backdropUrl = history.backdropUrl,
                             sourceName = history.sourceName,
                             isSeries = history.isSeries,
-                            watchPercentage = history.watchPercentage
+                            watchPercentage = history.watchPercentage,
+                            streamUrl = history.streamUrl
                         )
                     }
                     continueWatchingCategory = StreamingCategory(

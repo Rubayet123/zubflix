@@ -43,7 +43,12 @@ class HDGharTvSource : StreamingSource {
 
         return try {
             client.newCall(req).execute().use { resp ->
-                if (resp.isSuccessful) resp.body?.string() else null
+                if (resp.isSuccessful) {
+                    val bodyStr = resp.body?.string()?.trim()
+                    if (bodyStr != null && (bodyStr.startsWith("{") || bodyStr.startsWith("["))) {
+                        bodyStr
+                    } else null
+                } else null
             }
         } catch (e: Exception) {
             Log.w("HDGharTvSource", "Failed to fetch JSON from $url: ${e.message}")

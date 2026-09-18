@@ -55,6 +55,7 @@ object BDIXScraper {
                         scraper.getStreams(type, meta, season, episode)
                     } ?: emptyList()
                 } catch (t: Throwable) {
+                    if (t is kotlinx.coroutines.CancellationException) throw t
                     emptyList()
                 }
             })
@@ -64,6 +65,7 @@ object BDIXScraper {
             try {
                 it.await()
             } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
                 emptyList()
             }
         }.flatten()

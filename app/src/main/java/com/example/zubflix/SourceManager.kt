@@ -10,6 +10,8 @@ import com.example.zubflix.sources.DiscoveryFtpSource
 import com.example.zubflix.sources.MovieLinkBDSource
 import com.example.zubflix.sources.CtgMoviesSource
 import com.example.zubflix.sources.MovieBoxWebSource
+import com.example.zubflix.sources.MovieBoxAppSource
+import com.example.zubflix.sources.MovieBoxINSource
 import com.example.zubflix.sources.RtallySource
 import com.example.zubflix.sources.MovieBlastSource
 import com.example.zubflix.sources.CinefreakSource
@@ -29,7 +31,9 @@ object SourceManager {
         appContext = context.applicationContext
         val rawSources = listOf(
             NuvioSource(context),
+            MovieBoxINSource(),
             MovieBoxWebSource(),
+            MovieBoxAppSource(),
             MovieBlastSource(context),
             CinefreakSource(),
             CastleTvSource(),
@@ -78,12 +82,18 @@ object SourceManager {
 
     fun getAllSources(context: Context? = null): List<StreamingSource> {
         val ctx = context ?: appContext
+        if (allSources.isEmpty() && ctx != null) {
+            initialize(ctx)
+        }
         if (ctx == null) return allSources
         val csSources = getDynamicCloudStreamSources(ctx)
         return allSources + csSources
     }
 
     fun getOrderedSources(context: Context): List<StreamingSource> {
+        if (allSources.isEmpty()) {
+            initialize(context)
+        }
         val csSources = getDynamicCloudStreamSources(context)
         val combined = allSources + csSources
         val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
@@ -91,10 +101,17 @@ object SourceManager {
         if (savedOrderStr.isNullOrEmpty()) {
             return combined
         }
-        val savedNames = savedOrderStr.split(",").map { it.trim() }
+        val savedNames = savedOrderStr.split(",").map { 
+            it.trim()
+        }.toMutableList()
+
         val sorted = combined.sortedBy { source ->
             val idx = savedNames.indexOf(source.name)
-            if (idx >= 0) idx else Int.MAX_VALUE
+            if (idx >= 0) {
+                idx
+            } else {
+                Int.MAX_VALUE
+            }
         }
         return sorted
     }
@@ -125,7 +142,7 @@ object SourceManager {
         val enabled = getEnabledSources(context)
         val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
         val selectedName = prefs.getString("selected_source", null)
-        val found = enabled.find { it.name == selectedName }
+        val found = enabled.find { it.name.equals(selectedName, ignoreCase = true) }
         if (found != null &&
             !found.name.contains("CloudStream Extensions", ignoreCase = true) &&
             !found.name.contains("MegaProvider", ignoreCase = true)
@@ -135,7 +152,7 @@ object SourceManager {
         val defaultSource = enabled.firstOrNull {
             !it.name.contains("CloudStream Extensions", ignoreCase = true) &&
             !it.name.contains("MegaProvider", ignoreCase = true)
-        } ?: allSources.first()
+        } ?: allSources.firstOrNull() ?: MovieBoxWebSource()
         setSelectedSource(context, defaultSource.name)
         return defaultSource
     }
@@ -148,15 +165,18 @@ object SourceManager {
     fun getSourceByName(name: String): StreamingSource? {
         if (name.isBlank()) return null
         val sources = getAllSources()
+        // First priority: Exact name match
+        val exactMatch = sources.find {
+            val sName = if (it is CachedSource) it.source.name else it.name
+            sName.equals(name, ignoreCase = true)
+        }
+        if (exactMatch != null) return exactMatch
+
+        // Second priority: Fuzzy substring fallback
         return sources.find {
             val sName = if (it is CachedSource) it.source.name else it.name
-            sName.equals(name, ignoreCase = true) ||
             sName.contains(name, ignoreCase = true) ||
-            name.contains(sName, ignoreCase = true) ||
-            (sName.contains("MovieBox", ignoreCase = true) && name.contains("MovieBox", ignoreCase = true)) ||
-            (sName.contains("MovieLink", ignoreCase = true) && name.contains("MovieLink", ignoreCase = true)) ||
-            (sName.contains("CTG", ignoreCase = true) && name.contains("CTG", ignoreCase = true)) ||
-            (sName.contains("Nuvio", ignoreCase = true) && name.contains("Nuvio", ignoreCase = true))
+            name.contains(sName, ignoreCase = true)
         }
     }
 
